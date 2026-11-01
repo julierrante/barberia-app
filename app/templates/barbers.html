@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}El equipo · {{ app_name }}{% endblock %}
+{% block body_class %}team-page{% endblock %}
+{% block description %}Conocé a los barberos de {{ app_name }}: especialidades, trabajos y horarios.{% endblock %}
+
+{% block content %}
+<section class="page-hero">
+  <div class="shell page-hero-grid">
+    <div>
+      <span class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> El equipo</span>
+      <h1 class="display display--lg">Manos que <em>entienden</em> tu corte.</h1>
+    </div>
+    <p class="page-hero-copy">
+      Cada barbero tiene una manera de trabajar. Mirá sus especialidades, sus
+      horarios y algunos de sus trabajos antes de elegir.
+    </p>
+  </div>
+</section>
+
+<section class="section profiles-section">
+  <div class="shell profiles-stack">
+    {% for barber in barbers %}
+    <article class="profile" id="{{ barber.slug }}">
+      <div class="profile-media">
+        {% if barber.avatar_url %}
+        <img
+          src="{{ barber.avatar_url }}"
+          alt="Retrato de {{ barber.name }}"
+          loading="lazy"
+          width="800"
+          height="1000"
+        >
+        {% else %}
+        <div class="profile-fallback">{{ barber.name[0] }}</div>
+        {% endif %}
+        <span class="profile-index">{{ "%02d"|format(loop.index) }}</span>
+      </div>
+
+      <div class="profile-content">
+        <span class="eyebrow">Barbero {{ "%02d"|format(loop.index) }}</span>
+        <h2>{{ barber.name }}</h2>
+        {% if barber.rating_count %}
+        <p class="profile-rating">
+          <span aria-hidden="true">★</span>
+          {{ "%.1f"|format(barber.rating_average) }}
+          <span>· {{ barber.rating_count }} {{ "calificación" if barber.rating_count == 1 else "calificaciones" }}</span>
+        </p>
+        {% endif %}
+        {% if barber.tagline %}
+        <p class="profile-tagline">{{ barber.tagline }}</p>
+        {% endif %}
+        {% if barber.bio %}
+        <p class="profile-bio">{{ barber.bio }}</p>
+        {% endif %}
+
+        <div class="tag-row">
+          {% for specialty in barber.specialties %}
+          <span class="tag">{{ specialty.name }}</span>
+          {% endfor %}
+        </div>
+
+        <a class="btn btn--accent btn--small" href="/?barbero={{ barber.slug }}#reservar">
+          Reservar con {{ barber.name.split()[0] }}
+        </a>
+
+        <div class="profile-details">
+          <section class="schedule-panel" aria-labelledby="schedule-{{ barber.slug }}">
+            <h3 id="schedule-{{ barber.slug }}">Horarios</h3>
+            <dl class="hours-list">
+              {% for day_number, day_name in weekdays.items() %}
+                {% set blocks = barber.schedules | selectattr("weekday", "equalto", day_number) | list %}
+                <div class="hours-row">
+                  <dt>{{ day_name }}</dt>
+                  <dd>
+                    {% if blocks %}
+                      {% for block in blocks %}
+                      <span>{{ block.start_time|clock }}–{{ block.end_time|clock }}</span>{% if not loop.last %}<br>{% endif %}
+                      {% endfor %}
+                    {% else %}
+                    <span class="muted">Libre</span>
+                    {% endif %}
+                  </dd>
+                </div>
+              {% endfor %}
+            </dl>
+          </section>
+
+          <section class="portfolio-panel" aria-labelledby="portfolio-{{ barber.slug }}">
+            <h3 id="portfolio-{{ barber.slug }}">Trabajos</h3>
+            <p class="portfolio-lead">
+              Fotos y videos de cortes y trabajos realizados por {{ barber.name }}.
+            </p>
+            <a class="btn btn--ghost btn--small" href="/barberos/{{ barber.slug }}/trabajos">
+              Ver trabajos realizados de {{ barber.name }} <span aria-hidden="true">→</span>
+            </a>
+          </section>
+        </div>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty-panel">
+      <span class="placeholder-mark" aria-hidden="true">—</span>
+      <h3>Todavía no hay barberos activos.</h3>
+      <p>Cuando se configure el equipo, sus perfiles van a aparecer acá.</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="team-cta">
+  <div class="shell team-cta-inner">
+    <div>
+      <span class="eyebrow">¿Ya elegiste?</span>
+      <h2 class="display display--sm">Tu silla te espera.</h2>
+    </div>
+    <a class="btn btn--light" href="/#reservar">Reservar un turno</a>
+  </div>
+</section>
+{% endblock %}

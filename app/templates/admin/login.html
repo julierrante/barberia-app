@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Ingreso interno · {{ app_name }}{% endblock %}
+{% block body_class %}admin-login-body{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/admin.css">
+{% endblock %}
+
+{% block header %}
+<header class="login-header">
+  <div class="shell login-header-inner">
+    <a class="brand" href="/" aria-label="{{ app_name }} — inicio">
+      <span class="brand-mark" aria-hidden="true">N</span>
+      <span class="brand-name">{{ app_name }}</span>
+    </a>
+    <a class="admin-link" href="/">Volver al sitio</a>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="login-section">
+  <div class="shell login-grid">
+    <div class="login-intro">
+      <span class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Acceso interno</span>
+      <h1 class="display display--md">El día,<br><em>a la vista.</em></h1>
+      <p>
+        Agenda, demoras, cobros e historial del equipo en un solo lugar.
+        Este acceso es exclusivo para barberos y administración.
+      </p>
+    </div>
+
+    <div class="login-card">
+      <div class="login-card-head">
+        <span class="detail-label">Barbería · Operación</span>
+        <h2>Ingresar al panel</h2>
+        <p>Administración usa su usuario; los barberos, el email de su perfil.</p>
+      </div>
+
+      {% if error %}
+      <div class="form-alert" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/admin/login" class="login-form">
+        <label class="field">
+          <span class="field-label">Email o usuario</span>
+          <input class="input" type="text" name="username" autocomplete="username" required autofocus>
+        </label>
+        <label class="field">
+          <span class="field-label">Contraseña</span>
+          <input class="input" type="password" name="password" autocomplete="current-password" required>
+        </label>
+        <button class="btn btn--accent btn--block" type="submit">Entrar al panel</button>
+      </form>
+
+      <p class="login-note">
+        ¿Sos nuevo en el equipo? <a class="text-link" href="/equipo/registro">Creá tu perfil de barbero</a>.
+        En producción, cambiá las credenciales y usá HTTPS antes de exponer el panel.
+      </p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block footer %}{% endblock %}

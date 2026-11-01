@@ -1,0 +1,150 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Inicio · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-head">
+  <div>
+    <span class="eyebrow">Panel de la dueña</span>
+    <h1 class="display display--sm">Tu equipo, <em>en primera plana</em>.</h1>
+    <p>
+      Vos coordinás la casa, no atendés turnos. Elegí la foto de un barbero para ver su
+      agenda y administrar su perfil, su acceso y su publicación en la web.
+    </p>
+  </div>
+  <a class="btn btn--accent btn--small" href="/admin/barberos/nuevo">Nuevo barbero</a>
+</div>
+
+{% if updated %}
+<div class="form-success" role="status">El estado del barbero se actualizó.</div>
+{% endif %}
+
+{% if deleted %}
+<div class="form-success" role="status">El perfil se eliminó. Se revocó su acceso y se conservó el historial de turnos y cierres.</div>
+{% endif %}
+
+{% if error == "sin-horarios" %}
+<div class="form-alert" role="alert">Para aprobar el perfil, primero cargá al menos un día y horario de trabajo.</div>
+{% elif error == "turnos-pendientes" %}
+<div class="form-alert" role="alert">
+  No se puede eliminar el perfil: todavía tiene turnos confirmados o en curso.
+  Completalos, cancelalos o marcalos como ausencia y volvé a intentar.
+</div>
+{% endif %}
+
+{% if barbers %}
+<div class="owner-gallery" aria-label="Equipo de barberos">
+  {% for barber in barbers %}
+  <a
+    class="owner-barber-card"
+    href="/admin/barberos/{{ barber.id }}"
+    data-barber-card
+    data-name="{{ barber.name }}"
+    data-photo="{{ barber.avatar_url or '' }}"
+    data-initial="{{ barber.name[:1] }}"
+    data-pending="{{ 'true' if not barber.active else 'false' }}"
+    data-has-schedules="{{ 'true' if barber.schedules else 'false' }}"
+    data-agenda-url="/admin/agenda?barber_id={{ barber.id }}"
+    data-edit-url="/admin/barberos/{{ barber.id }}"
+    data-public-url="{{ ('/barberos/' ~ barber.slug) if barber.active else '' }}"
+    data-approve-url="/admin/barberos/{{ barber.id }}/estado"
+    data-delete-url="/admin/barberos/{{ barber.id }}/eliminar"
+    aria-haspopup="dialog"
+  >
+    <span class="owner-barber-photo">
+      {% if barber.avatar_url %}
+      <img src="{{ barber.avatar_url }}" alt="" loading="lazy">
+      {% else %}
+      <span class="owner-barber-initial" aria-hidden="true">{{ barber.name[:1] }}</span>
+      {% endif %}
+      <span class="status-pill status-pill--{{ 'confirmed' if barber.active else 'pending' }}">
+        {{ "Activo" if barber.active else "Pendiente" }}
+      </span>
+    </span>
+    <span class="owner-barber-body">
+      <strong>{{ barber.name }}</strong>
+      <small>{{ barber.tagline or "Sin frase corta" }}</small>
+      <span class="owner-barber-cta">Ver acciones →</span>
+    </span>
+  </a>
+  {% endfor %}
+</div>
+
+<dialog class="payment-dialog owner-actions-dialog" id="owner-actions-dialog" aria-labelledby="owner-actions-title">
+  <div class="payment-dialog-card owner-actions-card">
+    <div class="dialog-head">
+      <div class="owner-actions-identity">
+        <span class="owner-actions-photo" aria-hidden="true">
+          <img id="owner-actions-image" alt="" hidden>
+          <span id="owner-actions-initial"></span>
+        </span>
+        <div>
+          <span class="eyebrow">Acciones del barbero</span>
+          <h2 id="owner-actions-title">Barbero</h2>
+          <span class="status-pill status-pill--confirmed" id="owner-actions-status">Activo</span>
+        </div>
+      </div>
+      <button type="button" class="dialog-close" data-close-owner-actions aria-label="Cerrar">Cerrar</button>
+    </div>
+
+    <div class="owner-actions-grid">
+      <a class="owner-action-card" id="owner-action-agenda" href="#">
+        <span class="owner-action-icon" aria-hidden="true">01</span>
+        <strong>Ver agenda</strong>
+        <small>Turnos, cobros y cola del día.</small>
+      </a>
+      <a class="owner-action-card" id="owner-action-edit" href="#">
+        <span class="owner-action-icon" aria-hidden="true">02</span>
+        <strong>Editar perfil</strong>
+        <small>Foto, descripción, horarios y acceso.</small>
+      </a>
+      <a class="owner-action-card" id="owner-action-public" href="#" target="_blank" rel="noreferrer">
+        <span class="owner-action-icon" aria-hidden="true">03</span>
+        <strong>Ver en la web</strong>
+        <small>Perfil público y trabajos realizados.</small>
+      </a>
+      <form class="owner-action-form" method="post" id="owner-action-approve-form">
+        <input type="hidden" name="active" value="1">
+        <input type="hidden" name="origin" value="home">
+        <button class="owner-action-card" type="submit" id="owner-action-approve">
+          <span class="owner-action-icon" aria-hidden="true">04</span>
+          <strong>Aprobar perfil</strong>
+          <small>Publicarlo en la web y habilitar turnos.</small>
+        </button>
+      </form>
+    </div>
+    <p class="field-hint owner-actions-hint" id="owner-actions-hint" hidden>
+      Cargá al menos un día y horario de trabajo para poder aprobar este perfil.
+    </p>
+
+    <div class="owner-actions-danger">
+      <div>
+        <strong>Eliminar perfil</strong>
+        <p>Se revoca su acceso y se conserva el historial de turnos y cierres.</p>
+      </div>
+      <form
+        method="post"
+        id="owner-action-delete-form"
+        onsubmit="return confirm('¿Eliminar este perfil? Se quita de la web, del equipo y se revoca su acceso. El historial de turnos y cierres se conserva.');"
+      >
+        <input type="hidden" name="origin" value="home">
+        <button class="btn btn--danger btn--small" type="submit">Eliminar</button>
+      </form>
+    </div>
+  </div>
+</dialog>
+{% else %}
+<div class="empty-panel admin-empty">
+  <span class="placeholder-mark" aria-hidden="true">—</span>
+  <h3>Todavía no hay barberos.</h3>
+  <p>Creá el primer perfil para empezar a armar el equipo y la agenda.</p>
+  <a class="btn btn--accent btn--small" href="/admin/barberos/nuevo">Crear el primer barbero</a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if barbers %}
+<script src="/static/js/owner-home.js" defer></script>
+{% endif %}
+{% endblock %}

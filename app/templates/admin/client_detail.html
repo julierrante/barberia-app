@@ -1,0 +1,137 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ client.full_name }} · Clientes · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<a class="back-link" href="/admin/clientes">← Volver a clientes</a>
+
+<div class="client-header">
+  <div class="client-identity">
+    <span class="client-avatar client-avatar--lg" aria-hidden="true">{{ client.first_name[0] }}{{ client.last_name[0] }}</span>
+    <div>
+      <span class="eyebrow">Ficha de cliente · #{{ client.id }}</span>
+      <h1 class="display display--sm">{{ client.full_name }}</h1>
+      <p class="client-since">Cliente desde {{ client.created_at|local_date("%d/%m/%Y") }}</p>
+    </div>
+  </div>
+  <div class="client-contact">
+    <a href="tel:{{ client.phone }}">{{ client.phone }}</a>
+    {% if client.email %}
+    <a href="mailto:{{ client.email }}">{{ client.email }}</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="metric-grid">
+  <div class="metric-card">
+    <span class="metric-label">Visitas completadas</span>
+    <strong>{{ stats.visits_count }}</strong>
+    <small>servicios terminados</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Último turno</span>
+    <strong class="metric-text">{{ stats.last_visit_at|local_date }}</strong>
+    <small>{{ stats.last_visit_at|local_time if stats.last_visit_at else "Todavía sin visitas" }}</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Total cobrado</span>
+    <strong>{{ stats.total_paid_cents|money }}</strong>
+    <small>todos los pagos</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Saldo pendiente</span>
+    <strong class="{% if stats.pending_balance_cents > 0 %}text-warning{% endif %}">{{ stats.pending_balance_cents|money }}</strong>
+    <small>turnos no cancelados</small>
+  </div>
+</div>
+
+{% if client.notes %}
+<section class="client-notes">
+  <span class="detail-label">Notas internas</span>
+  <p>{{ client.notes }}</p>
+</section>
+{% endif %}
+
+<section class="client-history" aria-labelledby="history-title">
+  <div class="queue-head">
+    <div>
+      <span class="eyebrow">Historial</span>
+      <h2 id="history-title">Turnos y pagos</h2>
+    </div>
+    <span class="queue-updated">{{ client.appointments|length }} registros</span>
+  </div>
+
+  {% if client.appointments %}
+  <div class="history-stack">
+    {% for appointment in client.appointments %}
+    <details class="history-card">
+      <summary class="history-summary">
+        <span class="history-when">
+          <strong>{{ appointment.start_at|local_date("%d/%m/%Y") }}</strong>
+          <span>{{ appointment.start_at|local_time }} hs</span>
+        </span>
+        <span class="history-what">
+          <strong>{{ appointment.service.name }}</strong>
+          <span>Con {{ appointment.barber.name }} · {{ appointment.duration_minutes|duration }}</span>
+        </span>
+        <span class="status-pill status-pill--{{ appointment.status.value }}">{{ appointment.status|status_label }}</span>
+        <span class="history-amount">
+          <strong>{{ appointment.price_cents|money }}</strong>
+          <span>Pagado {{ appointment.paid_cents|money }}</span>
+        </span>
+        <span class="history-toggle" aria-hidden="true">+</span>
+      </summary>
+
+      <div class="history-detail">
+        <div class="history-payments">
+          <span class="detail-label">Pagos del turno</span>
+          {% if appointment.payments %}
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th scope="col">Concepto</th>
+                <th scope="col">Medio</th>
+                <th scope="col">Estado</th>
+                <th scope="col" class="table-number">Monto</th>
+                <th scope="col">Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for payment in appointment.payments %}
+              <tr>
+                <td>{{ payment.kind|payment_kind_label }}</td>
+                <td>{{ payment.method|payment_method_label }}</td>
+                <td>{{ payment.status|payment_status_label }}</td>
+                <td class="table-number">{{ payment.amount_cents|money }}</td>
+                <td>{{ (payment.paid_at or payment.created_at)|local_date }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <p class="muted">Sin pagos registrados.</p>
+          {% endif %}
+        </div>
+
+        <div class="history-side">
+          <dl class="history-totals">
+            <div><dt>Abonado</dt><dd>{{ appointment.paid_cents|money }}</dd></div>
+            <div><dt>Saldo</dt><dd>{{ appointment.balance_cents|money }}</dd></div>
+          </dl>
+          {% if appointment.cancel_reason %}
+          <p class="muted">{{ appointment.cancel_reason }}</p>
+          {% endif %}
+          <a class="text-link" href="/reserva/{{ appointment.public_code }}" target="_blank" rel="noopener">Ver comprobante público →</a>
+        </div>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-panel admin-empty">
+    <h3>Este cliente todavía no tiene turnos.</h3>
+    <p>Cuando reserve, su historial de servicios y pagos va a aparecer acá.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

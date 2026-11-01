@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/admin.css">
+{% endblock %}
+
+{% block body_class %}admin-body{% endblock %}
+
+{% block header %}
+{% set owner_session = request.session.get("is_admin") %}
+{% set barber_session = request.session.get("role") == "barber" %}
+<header class="admin-header">
+  <div class="shell admin-header-inner">
+    <a class="brand brand--admin" href="{{ '/admin' if owner_session else '/mi-agenda' }}" aria-label="{{ app_name }} — panel">
+      <span class="brand-mark" aria-hidden="true">N</span>
+      <span class="brand-name">{{ app_name }}</span>
+      <span class="admin-badge">{{ "Panel" if owner_session else "Barbero" }}</span>
+    </a>
+    <nav class="admin-nav" aria-label="Administración">
+      {% if owner_session %}
+      <a href="/admin" {% if request.url.path == '/admin' %}aria-current="page"{% endif %}>Inicio</a>
+      <a href="/admin/agenda" {% if request.url.path == '/admin/agenda' %}aria-current="page"{% endif %}>Agenda</a>
+      <a href="/admin/barberos" {% if request.url.path.startswith('/admin/barberos') %}aria-current="page"{% endif %}>Barberos</a>
+      <a href="/admin/clientes" {% if request.url.path.startswith('/admin/clientes') %}aria-current="page"{% endif %}>Clientes</a>
+      <a href="/admin/cierres" {% if request.url.path.startswith('/admin/cierres') %}aria-current="page"{% endif %}>Cierres</a>
+      <a href="/admin/reportes" {% if request.url.path == '/admin/reportes' %}aria-current="page"{% endif %}>Reportes</a>
+      <a href="/admin/mi-perfil" {% if request.url.path == '/admin/mi-perfil' %}aria-current="page"{% endif %}>Mi perfil</a>
+      {% elif barber_session %}
+      <a href="/mi-agenda" {% if request.url.path == '/mi-agenda' %}aria-current="page"{% endif %}>Mi agenda</a>
+      <a href="/mi-perfil" {% if request.url.path == '/mi-perfil' %}aria-current="page"{% endif %}>Mi perfil</a>
+      {% endif %}
+    </nav>
+    <div class="admin-account">
+      <span class="admin-user"><span class="user-dot" aria-hidden="true"></span>{{ request.session.get("admin_username") or admin_username }}</span>
+      <a class="admin-link" href="/" target="_blank" rel="noreferrer">Ver sitio</a>
+      <form action="/admin/logout" method="post">
+        <button type="submit" class="link-button">Salir</button>
+      </form>
+    </div>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="shell admin-main">
+  {% if current_barber is defined and current_barber and not current_barber.active %}
+  <div class="staff-banner" role="status">
+    <strong>Tu perfil está pendiente de aprobación.</strong>
+    Podés completar tus datos y horarios; administración lo va a publicar en la web cuando lo revise.
+  </div>
+  {% endif %}
+  {% block admin_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block footer %}
+<footer class="admin-footer">
+  <div class="shell admin-footer-inner">
+    <span>{{ app_name }} · Operación interna</span>
+    <span>{{ business_timezone }}</span>
+  </div>
+</footer>
+{% endblock %}

@@ -1,0 +1,79 @@
+<div class="profile-form-grid">
+  <aside class="profile-photo-panel">
+    <span class="field-label">Foto de perfil</span>
+    <div class="profile-photo-preview" data-avatar-preview>
+      {% if barber and barber.avatar_url %}
+      <img src="{{ barber.avatar_url }}" alt="Foto de {{ barber.name }}" data-avatar-image>
+      {% else %}
+      <span class="profile-photo-fallback" data-avatar-fallback>{{ (form_state.name or '?')[0] }}</span>
+      <img alt="" data-avatar-image hidden>
+      {% endif %}
+    </div>
+    <label class="field">
+      <span class="field-label">Subir una foto</span>
+      <input class="input input--file" type="file" name="avatar" accept="image/jpeg,image/png,image/webp" data-avatar-input>
+    </label>
+    <p class="field-hint">JPG, PNG o WebP · máximo 5 MB.</p>
+    {% if barber and barber.avatar_url %}
+    <label class="check-row">
+      <input type="checkbox" name="remove_avatar" value="on">
+      <span>Quitar la foto actual</span>
+    </label>
+    {% endif %}
+  </aside>
+
+  <div class="profile-fields">
+    <div class="form-grid">
+      <label class="field field--wide">
+        <span class="field-label">Nombre completo</span>
+        <input class="input" type="text" name="name" value="{{ form_state.name }}" maxlength="120" required autocomplete="name">
+      </label>
+      <label class="field field--wide">
+        <span class="field-label">Frase corta <span class="field-optional">opcional</span></span>
+        <input class="input" type="text" name="tagline" value="{{ form_state.tagline }}" maxlength="200" placeholder="Ej: Fades limpios, detalles precisos.">
+      </label>
+      <label class="field field--wide">
+        <span class="field-label">Descripción <span class="field-optional">opcional</span></span>
+        <textarea class="input input--textarea" name="bio" rows="5" maxlength="2000" placeholder="Contá tu estilo, tu experiencia y cómo trabajás.">{{ form_state.bio }}</textarea>
+      </label>
+      <label class="field field--wide">
+        <span class="field-label">Alias de Mercado Pago <span class="field-optional">opcional, para propinas</span></span>
+        <input class="input" type="text" name="mp_alias" value="{{ form_state.mp_alias }}" maxlength="80" placeholder="Ej: mateo.rios.mp">
+        <span class="field-hint">Se muestra a tus clientes en la confirmación del turno para que puedan dejarte una propina.</span>
+      </label>
+    </div>
+
+    <fieldset class="profile-fieldset">
+      <legend class="field-label">Especialidades</legend>
+      <div class="check-grid">
+        {% for specialty in specialties %}
+        <label class="check-chip">
+          <input type="checkbox" name="specialty_ids" value="{{ specialty.id }}" {% if specialty.id in form_state.specialty_ids %}checked{% endif %}>
+          <span>{{ specialty.name }}</span>
+        </label>
+        {% else %}
+        <p class="field-hint">Todavía no hay especialidades cargadas.</p>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <fieldset class="profile-fieldset">
+      <legend class="field-label">Días y horarios</legend>
+      <p class="field-hint">Cargá hasta dos bloques por día. Dejá los cuatro campos vacíos para marcar el día como libre.</p>
+      <div class="schedule-editor">
+        {% for row in form_state.schedule_rows %}
+        <div class="schedule-edit-row">
+          <span class="schedule-day">{{ row.name }}</span>
+          {% for block in row.blocks %}
+          <div class="schedule-block">
+            <input class="input" type="time" name="start_{{ row.weekday }}_{{ loop.index0 }}" value="{{ block.start }}" aria-label="{{ row.name }} inicio {{ loop.index }}">
+            <span class="schedule-sep" aria-hidden="true">–</span>
+            <input class="input" type="time" name="end_{{ row.weekday }}_{{ loop.index0 }}" value="{{ block.end }}" aria-label="{{ row.name }} fin {{ loop.index }}">
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </div>
+</div>

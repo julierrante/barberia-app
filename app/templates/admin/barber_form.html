@@ -1,0 +1,125 @@
+{% extends "admin/base_admin.html" %}
+
+{% set is_new = mode == "create" %}
+{% set account_required = is_new or has_account %}
+
+{% block title %}{{ "Nuevo barbero" if is_new else "Editar barbero" }} · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-head">
+  <div>
+    <span class="eyebrow">Equipo</span>
+    <h1 class="display display--sm">{{ "Crear perfil" if is_new else "Editar perfil" }} <em>de barbero</em>.</h1>
+    <p>
+      {% if is_new %}
+      Cargá los datos, el acceso y los horarios. El perfil se publica en la web cuando queda activo.
+      {% else %}
+      Actualizá la foto, la descripción, las especialidades y la agenda semanal de {{ barber.name if barber else "este barbero" }}.
+      {% endif %}
+    </p>
+  </div>
+  <a class="btn btn--ghost btn--small" href="/admin/barberos">Volver al equipo</a>
+</div>
+
+{% if saved %}
+<div class="form-success" role="status">Los cambios se guardaron correctamente.</div>
+{% endif %}
+
+{% if errors %}
+<div class="form-alert" role="alert">
+  {% for error in errors %}<div>{{ error }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<form class="profile-form" method="post" action="{{ action_url }}" enctype="multipart/form-data">
+  {% include "admin/_profile_fields.html" %}
+
+  <section class="profile-form-section">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Acceso al panel</span>
+        <h2>Credenciales del barbero</h2>
+      </div>
+      <span class="status-pill status-pill--{{ 'confirmed' if form_state.active else 'pending' }}">
+        {{ "Activo" if form_state.active else "Pendiente" }}
+      </span>
+    </div>
+
+    <div class="form-grid">
+      <label class="field">
+        <span class="field-label">Email de acceso</span>
+        <input
+          class="input"
+          type="email"
+          name="email"
+          value="{{ form_state.email }}"
+          autocomplete="email"
+          {% if account_required %}required{% endif %}
+        >
+      </label>
+      <label class="field">
+        <span class="field-label">
+          {{ "Contraseña inicial" if is_new or not has_account else "Nueva contraseña" }}
+          {% if not is_new and has_account %}<span class="field-optional">opcional</span>{% endif %}
+        </span>
+        <input
+          class="input"
+          type="password"
+          name="password"
+          autocomplete="new-password"
+          minlength="8"
+          {% if is_new %}required{% endif %}
+          placeholder="{{ 'Mínimo 8 caracteres' if is_new or not has_account else 'Dejar vacío para no cambiarla' }}"
+        >
+      </label>
+    </div>
+
+    <p class="field-hint">
+      {% if has_account %}
+      El barbero ingresa con este email y su contraseña. Si dejás la contraseña vacía, se mantiene la actual.
+      {% else %}
+      Completá email y contraseña para habilitar el acceso. Si dejás ambos vacíos, el perfil se guarda sin login.
+      {% endif %}
+    </p>
+
+    <label class="check-row check-row--switch">
+      <input type="checkbox" name="active" value="on" {% if form_state.active %}checked{% endif %}>
+      <span>
+        <strong>Perfil activo</strong>
+        <small>Visible en la web pública y disponible para recibir turnos.</small>
+      </span>
+    </label>
+  </section>
+
+  <div class="form-actions">
+    <a class="btn btn--ghost" href="/admin/barberos">Cancelar</a>
+    <button class="btn btn--accent" type="submit">
+      {{ "Crear barbero" if is_new else "Guardar cambios" }}
+    </button>
+  </div>
+</form>
+
+{% if barber %}
+{% include "admin/_portfolio_manager.html" %}
+
+<section class="danger-zone" aria-labelledby="delete-barber-title">
+  <div>
+    <span class="eyebrow">Baja del equipo</span>
+    <h2 id="delete-barber-title">Eliminar perfil</h2>
+    <p>
+      Se quita de la web y del listado del equipo, y se revoca su acceso al panel.
+      Los turnos, pagos y cierres ya registrados se conservan para no perder el historial.
+      Si tiene turnos confirmados o en curso, primero tenés que completarlos, cancelarlos
+      o marcarlos como ausencia.
+    </p>
+  </div>
+  <form method="post" action="/admin/barberos/{{ barber.id }}/eliminar" onsubmit="return confirm('¿Eliminar este perfil? Se quita de la web, del equipo y se revoca su acceso. El historial de turnos y cierres se conserva.');">
+    <button class="btn btn--danger btn--small" type="submit">Eliminar perfil</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/profile.js" defer></script>
+{% endblock %}

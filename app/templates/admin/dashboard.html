@@ -1,0 +1,186 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Agenda del día · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div
+  id="admin-app"
+  data-timezone="{{ business_timezone }}"
+  data-can-reschedule="{{ 'true' if can_reschedule else 'false' }}"
+  data-client-detail="{{ 'true' if client_detail else 'false' }}"
+  data-barber-id="{{ selected_barber_id or '' }}"
+>
+  <div class="admin-page-head">
+    <div>
+      <span class="eyebrow">{{ "Operación del día" if is_owner else "Mi jornada" }}</span>
+      <h1 class="display display--sm">{{ "Agenda " if is_owner else "Mi agenda, " }}<em>viva</em>.</h1>
+      <p>
+        {% if is_owner %}
+        Iniciá, completá o reasigná turnos. Si se libera un lugar, adelantá la cola con un clic; la llegada estimada se recalcula con la demora real.
+        {% else %}
+        Revisá tus turnos, iniciá el servicio, cobrá el saldo y marcá los trabajos completados. La llegada estimada se recalcula con tu demora real.
+        {% endif %}
+      </p>
+    </div>
+
+    {% if barbers %}
+    <form class="admin-filters" id="queue-filters">
+      {% if is_owner %}
+      <label class="field field--compact">
+        <span class="field-label">Barbero</span>
+        <select class="input" id="admin-barber">
+          {% for barber in barbers %}
+          <option value="{{ barber.id }}" {% if barber.id == selected_barber_id %}selected{% endif %}>{{ barber.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+      <label class="field field--compact">
+        <span class="field-label">Fecha</span>
+        <input class="input" type="date" id="admin-date" value="{{ today }}">
+      </label>
+      <button class="btn btn--ghost btn--small" type="submit" id="queue-refresh">Actualizar</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if barbers %}
+  <div class="metric-grid" aria-label="Resumen del día">
+    <div class="metric-card">
+      <span class="metric-label">En agenda</span>
+      <strong id="metric-agenda">—</strong>
+      <small>confirmados + en curso</small>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">En silla</span>
+      <strong id="metric-progress">—</strong>
+      <small>servicios en curso</small>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Cobrado del día</span>
+      <strong id="metric-collected">—</strong>
+      <small>pagos de los turnos</small>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Saldo del día</span>
+      <strong id="metric-balance">—</strong>
+      <small>pendiente de la jornada</small>
+    </div>
+  </div>
+
+  <section class="queue-panel" aria-labelledby="queue-title">
+    <div class="queue-head">
+      <div>
+        <span class="eyebrow">Cola del barbero</span>
+        <h2 id="queue-title">Turnos del día</h2>
+      </div>
+      <span class="queue-updated" id="queue-updated">Conectando…</span>
+    </div>
+
+    <div class="admin-alert" id="queue-feedback" role="status" aria-live="polite" hidden></div>
+
+    <div class="queue-list" id="queue-list" aria-live="polite">
+      <div class="queue-skeleton">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  </section>
+
+  <dialog class="payment-dialog" id="payment-dialog" aria-labelledby="payment-title">
+    <form class="payment-dialog-card" id="payment-form">
+      <div class="dialog-head">
+        <div>
+          <span class="detail-label">Pago manual</span>
+          <h2 id="payment-title">Registrar cobro</h2>
+        </div>
+        <button type="button" class="dialog-close" data-close-payment aria-label="Cerrar">Cerrar</button>
+      </div>
+      <p class="dialog-context" id="payment-context"></p>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">Monto (ARS)</span>
+          <input class="input" type="number" id="payment-amount" min="1" step="0.01" required>
+        </label>
+        <label class="field">
+          <span class="field-label">Medio</span>
+          <select class="input" id="payment-method">
+            <option value="cash">Efectivo</option>
+            <option value="card">Tarjeta</option>
+            <option value="transfer">Transferencia</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Concepto</span>
+          <select class="input" id="payment-kind">
+            <option value="balance">Saldo</option>
+            <option value="deposit">Seña</option>
+            <option value="full">Pago total</option>
+          </select>
+        </label>
+      </div>
+      <p class="dialog-hint">El pago queda asociado al turno y al historial del cliente.</p>
+      <div class="form-alert" id="payment-error" role="alert" hidden></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn--ghost btn--small" data-close-payment>Cancelar</button>
+        <button type="submit" class="btn btn--accent btn--small" id="payment-submit">Registrar pago</button>
+      </div>
+    </form>
+  </dialog>
+
+  {% if can_reschedule %}
+  <dialog class="payment-dialog reschedule-dialog" id="reschedule-dialog" aria-labelledby="reschedule-title">
+    <form class="payment-dialog-card" id="reschedule-form">
+      <div class="dialog-head">
+        <div>
+          <span class="detail-label">Mover turno</span>
+          <h2 id="reschedule-title">Reasignar</h2>
+        </div>
+        <button type="button" class="dialog-close" data-close-reschedule aria-label="Cerrar">Cerrar</button>
+      </div>
+      <p class="dialog-context" id="reschedule-context"></p>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">Barbero</span>
+          <select class="input" id="reschedule-barber">
+            {% for barber in barbers %}
+            <option value="{{ barber.id }}">{{ barber.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Fecha</span>
+          <input class="input" type="date" id="reschedule-date" min="{{ today }}" max="{{ max_day }}" value="{{ today }}" required>
+        </label>
+        <label class="field field--wide">
+          <span class="field-label">Horario disponible</span>
+          <select class="input" id="reschedule-slot" required>
+            <option value="">Elegí un horario</option>
+          </select>
+        </label>
+      </div>
+      <p class="dialog-hint" id="reschedule-hint">El servicio, el precio y los pagos del turno se mantienen al cambiarlo de profesional, fecha u horario.</p>
+      <div class="form-alert" id="reschedule-error" role="alert" hidden></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn--ghost btn--small" data-close-reschedule>Cancelar</button>
+        <button type="submit" class="btn btn--accent btn--small" id="reschedule-submit" disabled>Reasignar turno</button>
+      </div>
+    </form>
+  </dialog>
+  {% endif %}
+
+  <div class="toast" id="admin-toast" role="status" aria-live="polite" hidden></div>
+  {% else %}
+  <div class="empty-panel admin-empty">
+    <span class="placeholder-mark" aria-hidden="true">—</span>
+    <h3>No hay barberos activos.</h3>
+    <p>Cargá el equipo y sus horarios para poner la agenda en marcha.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if barbers %}
+<script src="/static/js/admin.js" defer></script>
+{% endif %}
+{% endblock %}

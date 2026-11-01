@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Trabajos de {{ barber.name }} · {{ app_name }}{% endblock %}
+{% block body_class %}works-page{% endblock %}
+{% block description %}Fotos y videos de los trabajos realizados por {{ barber.name }} en {{ app_name }}.{% endblock %}
+
+{% block content %}
+<section class="page-hero works-hero">
+  <div class="shell page-hero-grid">
+    <div>
+      <a class="text-link text-link--muted works-back" href="/barberos#{{ barber.slug }}">← Volver al equipo</a>
+      <span class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Trabajos realizados</span>
+      <h1 class="display display--lg">Así trabaja <em>{{ barber.name.split()[0] }}</em>.</h1>
+      {% if barber.rating_count %}
+      <p class="works-rating">
+        <span aria-hidden="true">★</span>
+        {{ "%.1f"|format(barber.rating_average) }}
+        <span>· {{ barber.rating_count }} {{ "calificación" if barber.rating_count == 1 else "calificaciones" }}</span>
+      </p>
+      {% endif %}
+    </div>
+    <div class="works-hero-side">
+      {% if barber.tagline %}
+      <p class="page-hero-copy">{{ barber.tagline }}</p>
+      {% endif %}
+      <div class="tag-row">
+        {% for specialty in barber.specialties %}
+        <span class="tag">{{ specialty.name }}</span>
+        {% endfor %}
+      </div>
+      <a class="btn btn--accent" href="/?barbero={{ barber.slug }}#reservar">Reservar con {{ barber.name.split()[0] }}</a>
+    </div>
+  </div>
+</section>
+
+<section class="section works-section">
+  <div class="shell">
+    {% if barber.portfolio_items %}
+    <div class="works-grid">
+      {% for item in barber.portfolio_items %}
+      <figure class="work-card">
+        {% if item.is_video %}
+        <div class="work-media work-media--video">
+          <video src="{{ item.image_url }}" controls playsinline preload="metadata"></video>
+        </div>
+        {% else %}
+        <a class="work-media" href="{{ item.image_url }}" target="_blank" rel="noreferrer">
+          <img
+            src="{{ item.image_url }}"
+            alt="{{ item.caption or 'Trabajo de ' ~ barber.name }}"
+            loading="lazy"
+            width="800"
+            height="600"
+          >
+        </a>
+        {% endif %}
+        <figcaption>
+          <span class="work-type">{{ "Video" if item.is_video else "Foto" }}</span>
+          {% if item.caption %}<p>{{ item.caption }}</p>{% endif %}
+        </figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-panel">
+      <span class="placeholder-mark" aria-hidden="true">—</span>
+      <h3>Todavía no hay trabajos publicados.</h3>
+      <p>{{ barber.name }} va a sumar fotos y videos próximamente.</p>
+      <a class="btn btn--ghost btn--small" href="/?barbero={{ barber.slug }}#reservar">Reservar un turno</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="team-cta">
+  <div class="shell team-cta-inner">
+    <div>
+      <span class="eyebrow">¿Te gustó el estilo?</span>
+      <h2 class="display display--sm">Reservá con {{ barber.name.split()[0] }}.</h2>
+    </div>
+    <a class="btn btn--light" href="/?barbero={{ barber.slug }}#reservar">Elegir horario</a>
+  </div>
+</section>
+{% endblock %}

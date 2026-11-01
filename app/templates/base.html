@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}Reservá tu turno en {{ app_name }}: elegí tu barbero, seña online y llevá el historial de tus cortes.{% endblock %}">
+  <meta name="theme-color" content="#12110e">
+  <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#main">Ir al contenido</a>
+
+  {% block header %}
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="/" aria-label="{{ app_name }} — inicio">
+        <span class="brand-mark" aria-hidden="true">N</span>
+        <span class="brand-name">{{ app_name }}</span>
+      </a>
+      <nav class="public-nav" aria-label="Navegación principal">
+        <a href="/barberos" {% if request.url.path == '/barberos' %}aria-current="page"{% endif %}>Barberos</a>
+        <a href="/#reservar">Reservar</a>
+        <a class="nav-ghost" href="/admin">Panel</a>
+        <a class="btn btn--accent btn--small nav-cta" href="/#reservar">Agendar turno</a>
+      </nav>
+    </div>
+  </header>
+  {% endblock %}
+
+  <main id="main" class="{% block main_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block footer %}
+  <footer class="site-footer">
+    <div class="shell footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="/" aria-label="{{ app_name }} — inicio">
+          <span class="brand-mark" aria-hidden="true">N</span>
+          <span class="brand-name">{{ app_name }}</span>
+        </a>
+        <p>Cortes con criterio, agenda sin llamadas y una experiencia pensada de principio a fin.</p>
+      </div>
+      <div class="footer-nav">
+        <span class="footer-title">Encontrá tu turno</span>
+        <a href="/#reservar">Reservar online</a>
+        <a href="/barberos">Conocer al equipo</a>
+        <span class="footer-title footer-title--spaced">Para el equipo</span>
+        <a href="/admin/login">Acceso al panel</a>
+        <a href="/equipo/registro">Crear perfil de barbero</a>
+      </div>
+      <div class="footer-note">
+        <span class="footer-title">Horarios</span>
+        <p>La agenda se actualiza en tiempo real.</p>
+        {% if payments_mode == "mock" %}
+        <span class="demo-badge">Pagos online en modo demo</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="shell footer-bottom">
+      <span>© {{ current_year }} {{ app_name }}</span>
+      <span>Agenda · Seña · Historial</span>
+    </div>
+  </footer>
+  {% endblock %}
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

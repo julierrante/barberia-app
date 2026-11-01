@@ -1,0 +1,65 @@
+<section class="portfolio-manager" id="trabajos">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">Galería pública</span>
+      <h2>Trabajos realizados</h2>
+      <p class="field-hint">
+        Las fotos y videos que subas aparecen en la página de trabajos de
+        {{ barber.name }}. Podés combinar ambos formatos.
+      </p>
+    </div>
+    <span class="status-pill status-pill--pending">{{ portfolio_items|length }} / 24</span>
+  </div>
+
+  {% if portfolio_added %}
+  <div class="form-success" role="status">El trabajo se agregó a la galería.</div>
+  {% endif %}
+  {% if portfolio_deleted %}
+  <div class="form-success" role="status">El trabajo se quitó de la galería.</div>
+  {% endif %}
+  {% if portfolio_error %}
+  <div class="form-alert" role="alert">{{ portfolio_error }}</div>
+  {% endif %}
+
+  {% if portfolio_items %}
+  <div class="portfolio-manage-grid">
+    {% for item in portfolio_items %}
+    <figure class="portfolio-manage-item">
+      <div class="portfolio-manage-media">
+        {% if item.is_video %}
+        <video src="{{ item.image_url }}" controls playsinline preload="metadata"></video>
+        <span class="portfolio-media-badge">Video</span>
+        {% else %}
+        <img src="{{ item.image_url }}" alt="{{ item.caption or 'Trabajo de ' ~ barber.name }}" loading="lazy">
+        {% endif %}
+      </div>
+      <figcaption>
+        <span class="portfolio-manage-caption">{{ item.caption or ("Video sin descripción" if item.is_video else "Foto sin descripción") }}</span>
+        <form method="post" action="{{ portfolio_delete_base }}/{{ item.id }}/eliminar" onsubmit="return confirm('¿Quitar este trabajo de la galería?');">
+          <button type="submit" class="btn btn--danger btn--small">Quitar</button>
+        </form>
+      </figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="portfolio-manage-empty">
+    <p>Todavía no hay fotos ni videos. Sumá el primero para mostrar tu trabajo en la web.</p>
+  </div>
+  {% endif %}
+
+  <form class="portfolio-upload" method="post" action="{{ portfolio_add_url }}" enctype="multipart/form-data">
+    <div class="form-grid">
+      <label class="field">
+        <span class="field-label">Foto o video</span>
+        <input class="input input--file" type="file" name="media" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" required>
+        <span class="field-hint">JPG, PNG o WebP hasta 8 MB. MP4 o WebM hasta 25 MB.</span>
+      </label>
+      <label class="field">
+        <span class="field-label">Descripción <span class="field-optional">opcional</span></span>
+        <input class="input" type="text" name="caption" maxlength="160" placeholder="Ej: Fade con diseño.">
+      </label>
+    </div>
+    <button class="btn btn--accent btn--small" type="submit">Agregar a la galería</button>
+  </form>
+</section>

@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Reservá tu turno · {{ app_name }}{% endblock %}
+{% block body_class %}home-page{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="shell hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Barbería de autor · Agenda online</span>
+      <h1 class="display display--xl">Tu próximo corte,<br><em>sin esperas.</em></h1>
+      <p class="hero-lead">
+        Elegí tu barbero, reservá el horario que te conviene y seguí la demora
+        desde el celular. Seña o pago total, sin llamadas.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn--accent" href="#reservar">Reservar turno</a>
+        <a class="btn btn--ghost" href="/barberos">Conocer al equipo</a>
+      </div>
+      <div class="hero-proof">
+        <div>
+          <span class="proof-label">Disponibilidad</span>
+          <strong>En tiempo real</strong>
+        </div>
+        <div>
+          <span class="proof-label">Confirmación</span>
+          <strong>Inmediata</strong>
+        </div>
+        <div>
+          <span class="proof-label">Cancelación</span>
+          <strong>Online</strong>
+        </div>
+      </div>
+    </div>
+
+    <figure class="hero-visual">
+      <div class="hero-frame">
+        <img
+          src="/static/img/barbershop-hero.jpg"
+          alt="Interior de una barbería con luz cálida y una silla de barbero"
+          width="900"
+          height="1125"
+        >
+      </div>
+      <figcaption class="hero-caption">
+        <span class="hero-caption-index">01</span>
+        <span>Precisión, pausa<br>y una buena charla.</span>
+      </figcaption>
+      <span class="hero-chip">Turnos online · Confirmación inmediata</span>
+    </figure>
+  </div>
+</section>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>Corte clásico</span><i></i><span>Fade</span><i></i><span>Barba</span><i></i>
+    <span>Navaja</span><i></i><span>Textura</span><i></i><span>Ritual</span><i></i>
+    <span>Corte clásico</span><i></i><span>Fade</span><i></i><span>Barba</span><i></i>
+    <span>Navaja</span><i></i><span>Textura</span><i></i><span>Ritual</span><i></i>
+  </div>
+</div>
+
+<section class="info-band" aria-label="Cómo funciona">
+  <div class="shell info-band-grid">
+    <article>
+      <span class="info-index">01</span>
+      <h2>Elegí a mano</h2>
+      <p>Perfiles con especialidades, trabajos y horarios de cada barbero.</p>
+    </article>
+    <article>
+      <span class="info-index">02</span>
+      <h2>Reservá a tu modo</h2>
+      <p>Disponibilidad real, con seña online o pago total del servicio.</p>
+    </article>
+    <article>
+      <span class="info-index">03</span>
+      <h2>Seguí tu turno</h2>
+      <p>Demora estimada en vivo y cancelación simple si tus planes cambian.</p>
+    </article>
+  </div>
+</section>
+
+<section class="section booking-section" id="reservar">
+  <div class="shell">
+    <div class="section-heading booking-heading">
+      <div>
+        <span class="eyebrow">Reservá online</span>
+        <h2 class="display display--md">Armá tu <em>turno</em>.</h2>
+      </div>
+      <p class="section-copy">
+        Elegí el servicio, el barbero y el horario. La agenda se actualiza en
+        tiempo real y la confirmación es inmediata.
+      </p>
+    </div>
+
+    {% if services and barbers %}
+    <form id="booking-form" class="booking-layout" novalidate
+          data-timezone="{{ business_timezone }}"
+          data-min-notice="{{ min_notice_minutes }}"
+          data-payments-mode="{{ payments_mode }}">
+      <div class="booking-steps">
+        <section class="step-card" aria-labelledby="step-service-title">
+          <div class="step-head">
+            <span class="step-number">01</span>
+            <div>
+              <h3 id="step-service-title">Servicio</h3>
+              <p>Qué te vas a hacer hoy.</p>
+            </div>
+          </div>
+          <div class="choice-grid" id="service-options">
+            {% for service in services %}
+            <button
+              type="button"
+              class="choice-card service-option"
+              data-service-id="{{ service.id }}"
+              data-name="{{ service.name }}"
+              data-price="{{ service.price_cents }}"
+              data-deposit="{{ service.deposit_cents }}"
+              data-duration="{{ service.duration_minutes }}"
+              aria-pressed="false"
+            >
+              <span class="choice-top">
+                <span class="choice-title">{{ service.name }}</span>
+                <span class="choice-check" aria-hidden="true"></span>
+              </span>
+              {% if service.description %}
+              <span class="choice-desc">{{ service.description }}</span>
+              {% endif %}
+              <span class="choice-meta">
+                <span>{{ service.duration_minutes|duration }}</span>
+                <strong>{{ service.price_cents|money }}</strong>
+              </span>
+              {% if service.deposit_cents %}
+              <span class="choice-sub">Seña online {{ service.deposit_cents|money }}</span>
+              {% endif %}
+            </button>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="step-card" aria-labelledby="step-barber-title">
+          <div class="step-head">
+            <span class="step-number">02</span>
+            <div>
+              <h3 id="step-barber-title">Barbero</h3>
+              <p>Con quién querés cortarte.</p>
+            </div>
+          </div>
+          <div class="barber-grid" id="barber-options">
+            {% for barber in barbers %}
+            <article class="barber-card" data-barber-id="{{ barber.id }}" data-slug="{{ barber.slug }}">
+              <button type="button" class="barber-select" data-barber-select aria-pressed="false">
+                <span class="barber-photo">
+                  {% if barber.avatar_url %}
+                  <img
+                    src="{{ barber.avatar_url }}"
+                    alt="Retrato de {{ barber.name }}"
+                    loading="lazy"
+                    width="480"
+                    height="600"
+                  >
+                  {% else %}
+                  <span class="avatar-fallback">{{ barber.name[0] }}</span>
+                  {% endif %}
+                  <span class="choice-check" aria-hidden="true"></span>
+                </span>
+                <span class="barber-copy">
+                  <strong class="barber-name">{{ barber.name }}</strong>
+                  {% if barber.tagline %}
+                  <span class="barber-tagline">{{ barber.tagline }}</span>
+                  {% endif %}
+                  {% if barber.rating_count %}
+                  <span class="barber-rating"><span aria-hidden="true">★</span> {{ "%.1f"|format(barber.rating_average) }} <small>({{ barber.rating_count }})</small></span>
+                  {% endif %}
+                  <span class="tag-row tag-row--tight">
+                    {% for specialty in barber.specialties %}
+                    <span class="tag">{{ specialty.name }}</span>
+                    {% endfor %}
+                  </span>
+                </span>
+              </button>
+              <a class="text-link" href="/barberos#{{ barber.slug }}">Ver perfil y horarios <span aria-hidden="true">→</span></a>
+              <a class="text-link barber-works-link" href="/barberos/{{ barber.slug }}/trabajos">Ver trabajos realizados de {{ barber.name }} <span aria-hidden="true">→</span></a>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="step-card" aria-labelledby="step-time-title">
+          <div class="step-head">
+            <span class="step-number">03</span>
+            <div>
+              <h3 id="step-time-title">Día y horario</h3>
+              <p>Elegí el hueco que te queda cómodo.</p>
+            </div>
+          </div>
+          <div class="date-row">
+            <label class="field field--date">
+              <span class="field-label">Fecha</span>
+              <input
+                type="date"
+                id="booking-date"
+                class="input"
+                value="{{ today }}"
+                min="{{ today }}"
+                max="{{ max_day }}"
+                required
+              >
+            </label>
+            <p class="field-hint">
+              Reservá con al menos {{ min_notice_minutes }} minutos de anticipación.
+              Hasta {{ max_day }}.
+            </p>
+          </div>
+          <div class="slot-panel" id="slot-panel" aria-live="polite">
+            <div class="slot-placeholder">
+              <span class="placeholder-mark" aria-hidden="true">—</span>
+              <p>Elegí un servicio y un barbero para ver los horarios disponibles.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="step-card" aria-labelledby="step-data-title">
+          <div class="step-head">
+            <span class="step-number">04</span>
+            <div>
+              <h3 id="step-data-title">Tus datos y pago</h3>
+              <p>Así te identificamos en la barbería.</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label class="field">
+              <span class="field-label">Nombre</span>
+              <input class="input" type="text" id="client-first-name" name="first_name" autocomplete="given-name" maxlength="80" required>
+            </label>
+            <label class="field">
+              <span class="field-label">Apellido</span>
+              <input class="input" type="text" id="client-last-name" name="last_name" autocomplete="family-name" maxlength="80" required>
+            </label>
+            <label class="field">
+              <span class="field-label">Teléfono</span>
+              <input class="input" type="tel" id="client-phone" name="phone" autocomplete="tel" inputmode="tel" maxlength="30" placeholder="+54 9 11 5555 5555" required>
+            </label>
+            <label class="field">
+              <span class="field-label">Email <span class="field-optional">(opcional)</span></span>
+              <input class="input" type="email" id="client-email" name="email" autocomplete="email" maxlength="160" placeholder="vos@email.com">
+            </label>
+          </div>
+
+          <fieldset class="payment-fieldset">
+            <legend class="field-label">Forma de pago</legend>
+            <div class="payment-grid" id="payment-options">
+              <label class="payment-card">
+                <input type="radio" name="payment_option" value="later" checked>
+                <span class="payment-radio" aria-hidden="true"></span>
+                <span class="payment-main">
+                  <strong>En el local</strong>
+                  <small>Pagás al terminar el servicio.</small>
+                </span>
+                <span class="payment-amount">—</span>
+              </label>
+              <label class="payment-card" id="payment-deposit-card">
+                <input type="radio" name="payment_option" value="deposit">
+                <span class="payment-radio" aria-hidden="true"></span>
+                <span class="payment-main">
+                  <strong>Seña online</strong>
+                  <small>Reservás el turno con un pago parcial.</small>
+                </span>
+                <span class="payment-amount" data-payment-deposit>Elegí un servicio</span>
+              </label>
+              <label class="payment-card" id="payment-full-card">
+                <input type="radio" name="payment_option" value="full">
+                <span class="payment-radio" aria-hidden="true"></span>
+                <span class="payment-main">
+                  <strong>Pago total</strong>
+                  <small>Dejás el servicio abonado por completo.</small>
+                </span>
+                <span class="payment-amount" data-payment-full>Elegí un servicio</span>
+              </label>
+            </div>
+          </fieldset>
+
+          {% if payments_mode == "mock" %}
+          <div class="demo-note">
+            <strong>Pago demo.</strong>
+            <span> La seña y el total se simulan en este MVP. No se cobra dinero real ni se piden datos de tarjeta.</span>
+          </div>
+          {% endif %}
+        </section>
+      </div>
+
+      <aside class="booking-aside" aria-label="Resumen de tu reserva">
+        <div class="summary-card">
+          <span class="summary-eyebrow">Tu reserva</span>
+          <h3>Cortá, sentate, listo.</h3>
+          <dl class="summary-list">
+            <div>
+              <dt>Servicio</dt>
+              <dd data-summary-service>—</dd>
+            </div>
+            <div>
+              <dt>Barbero</dt>
+              <dd data-summary-barber>—</dd>
+            </div>
+            <div>
+              <dt>Fecha</dt>
+              <dd data-summary-date>—</dd>
+            </div>
+            <div>
+              <dt>Horario</dt>
+              <dd data-summary-time>—</dd>
+            </div>
+            <div>
+              <dt>Duración</dt>
+              <dd data-summary-duration>—</dd>
+            </div>
+          </dl>
+          <div class="summary-divider"></div>
+          <div class="summary-total">
+            <span>Total del servicio</span>
+            <strong data-summary-price>—</strong>
+          </div>
+          <p class="summary-payment" data-summary-payment>Pagás en el local.</p>
+          <div class="form-alert" id="booking-error" role="alert" hidden></div>
+          <button type="submit" class="btn btn--accent btn--block" id="booking-submit" disabled>
+            Confirmar turno
+          </button>
+          <p class="summary-hint" id="summary-hint">Completá los 4 pasos para confirmar.</p>
+          <p class="summary-note">
+            Recibís la confirmación al instante. Podés cancelar online desde tu
+            comprobante de turno.
+          </p>
+        </div>
+      </aside>
+    </form>
+    {% else %}
+    <div class="empty-panel">
+      <span class="placeholder-mark" aria-hidden="true">—</span>
+      <h3>La agenda todavía no está configurada.</h3>
+      <p>Cargá servicios y barberos desde la base para empezar a recibir reservas.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/booking.js" defer></script>
+{% endblock %}

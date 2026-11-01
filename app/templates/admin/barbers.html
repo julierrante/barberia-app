@@ -1,0 +1,123 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Barberos · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-head admin-page-head--clients">
+  <div>
+    <span class="eyebrow">Equipo</span>
+    <h1 class="display display--sm">El plantel de <em>la casa</em>.</h1>
+    <p>Creá perfiles, habilitá el acceso de cada barbero y revisá quién está visible en la web.</p>
+  </div>
+  <a class="btn btn--accent btn--small" href="/admin/barberos/nuevo">Nuevo barbero</a>
+</div>
+
+{% if created %}
+<div class="form-success" role="status">El barbero se creó correctamente.</div>
+{% endif %}
+
+{% if updated %}
+<div class="form-success" role="status">El estado del equipo se actualizó.</div>
+{% endif %}
+
+{% if deleted %}
+<div class="form-success" role="status">El perfil se eliminó. Se quitó de la web, se revocó su acceso y se conservó el historial.</div>
+{% endif %}
+
+{% if status_error == "sin-horarios" %}
+<div class="form-alert" role="alert">Para aprobar el perfil, primero cargá al menos un día y horario de trabajo.</div>
+{% elif status_error == "turnos-pendientes" %}
+<div class="form-alert" role="alert">
+  No se puede eliminar el perfil: todavía tiene turnos confirmados o en curso.
+  Completalos, cancelalos o marcalos como ausencia y volvé a intentar.
+</div>
+{% endif %}
+
+<div class="table-meta">
+  <span>{{ barbers|length }} {% if barbers|length == 1 %}barbero{% else %}barberos{% endif %}</span>
+  <span class="muted">Los perfiles pendientes no aparecen en la web pública.</span>
+</div>
+
+{% if barbers %}
+<div class="table-shell">
+  <table class="admin-table admin-table--barbers">
+    <thead>
+      <tr>
+        <th scope="col">Barbero</th>
+        <th scope="col">Acceso</th>
+        <th scope="col">Especialidades</th>
+        <th scope="col">Días</th>
+        <th scope="col">Estado</th>
+        <th scope="col"><span class="sr-only">Acciones</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for barber in barbers %}
+      <tr>
+        <td>
+          <div class="client-cell">
+            {% if barber.avatar_url %}
+            <img class="barber-avatar" src="{{ barber.avatar_url }}" alt="" width="36" height="36">
+            {% else %}
+            <span class="client-avatar" aria-hidden="true">{{ barber.name[0] }}</span>
+            {% endif %}
+            <span>
+              <a class="table-link" href="/admin/barberos/{{ barber.id }}">{{ barber.name }}</a>
+              <small>{{ barber.tagline or "Sin frase corta" }}</small>
+            </span>
+          </div>
+        </td>
+        <td>
+          {% if barber.account %}
+          <span>{{ barber.account.email }}</span>
+          {% else %}
+          <span class="text-warning">Sin acceso</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if barber.specialties %}
+          <span>{{ barber.specialties|map(attribute="name")|join(", ") }}</span>
+          {% else %}
+          <span class="muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% set workdays = barber.schedules|map(attribute="weekday")|unique|list %}
+          {% if workdays %}
+          <span>{{ workdays|map("weekday_label")|join(", ") }}</span>
+          {% else %}
+          <span class="muted">Sin horarios</span>
+          {% endif %}
+        </td>
+        <td>
+          <span class="status-pill status-pill--{{ 'confirmed' if barber.active else 'pending' }}">
+            {{ "Activo" if barber.active else "Pendiente" }}
+          </span>
+        </td>
+        <td class="table-action">
+          <div class="table-actions">
+            <a class="text-link" href="/admin/barberos/{{ barber.id }}">Editar →</a>
+            {% if not barber.active %}
+            <form method="post" action="/admin/barberos/{{ barber.id }}/estado">
+              <input type="hidden" name="active" value="1">
+              <button class="link-button" type="submit" {% if not barber.schedules %}disabled title="Cargá horarios antes de aprobar"{% endif %}>Aprobar</button>
+            </form>
+            {% endif %}
+            <form method="post" action="/admin/barberos/{{ barber.id }}/eliminar" onsubmit="return confirm('¿Eliminar este perfil? Se quita de la web, del equipo y se revoca su acceso. El historial de turnos y cierres se conserva.');">
+              <button class="link-button link-button--danger" type="submit">Eliminar</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-panel admin-empty">
+  <span class="placeholder-mark" aria-hidden="true">—</span>
+  <h3>Todavía no hay barberos.</h3>
+  <p>Creá el primer perfil para empezar a armar la agenda del equipo.</p>
+</div>
+{% endif %}
+{% endblock %}

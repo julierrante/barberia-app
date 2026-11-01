@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Crear perfil de barbero · {{ app_name }}{% endblock %}
+{% block body_class %}admin-login-body{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/admin.css">
+{% endblock %}
+
+{% block header %}
+<header class="login-header">
+  <div class="shell login-header-inner">
+    <a class="brand" href="/" aria-label="{{ app_name }} — inicio">
+      <span class="brand-mark" aria-hidden="true">N</span>
+      <span class="brand-name">{{ app_name }}</span>
+    </a>
+    <a class="admin-link" href="/admin/login">Ya tengo acceso</a>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="register-section">
+  <div class="shell register-shell">
+    <div class="register-head">
+      <span class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span> Nuevo en el equipo</span>
+      <h1 class="display display--md">Creá tu <em>perfil</em>.</h1>
+      <p>
+        Sumá tu foto, tu descripción y tus horarios. El perfil queda pendiente
+        hasta que la administración lo apruebe, y después aparece en la web
+        pública para recibir reservas.
+      </p>
+    </div>
+
+    {% if errors %}
+    <div class="form-alert" role="alert">
+      {% for error in errors %}<div>{{ error }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <form class="profile-form register-card" method="post" action="/equipo/registro" enctype="multipart/form-data">
+      {% include "admin/_profile_fields.html" %}
+
+      <section class="profile-form-section">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Acceso</span>
+            <h2>Tus credenciales</h2>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input class="input" type="email" name="email" value="{{ form_state.email }}" autocomplete="email" required>
+          </label>
+          <label class="field">
+            <span class="field-label">Contraseña</span>
+            <input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required placeholder="Mínimo 8 caracteres">
+          </label>
+        </div>
+        <p class="field-hint">Con este email y contraseña vas a entrar a tu agenda y a este perfil.</p>
+      </section>
+
+      <div class="form-actions">
+        <a class="btn btn--ghost" href="/">Cancelar</a>
+        <button class="btn btn--accent" type="submit">Crear mi perfil</button>
+      </div>
+    </form>
+
+    <p class="register-note">
+      ¿Ya formás parte del equipo? <a class="text-link" href="/admin/login">Ingresá al panel</a>.
+    </p>
+  </div>
+</section>
+{% endblock %}
+
+{% block footer %}{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/profile.js" defer></script>
+{% endblock %}

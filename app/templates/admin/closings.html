@@ -1,0 +1,155 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Cierres diarios · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-head admin-page-head--clients">
+  <div>
+    <span class="eyebrow">Ganancias</span>
+    <h1 class="display display--sm">Cierres <em>diarios</em>.</h1>
+    <p>
+      Cada barbero queda registrado con lo que facturó, cobró y quedó pendiente.
+      {% if closing_enabled %}
+      El cierre automático se guarda todos los días a las {{ closing_time }}.
+      {% else %}
+      El cierre automático está desactivado; podés cerrar el día manualmente.
+      {% endif %}
+    </p>
+  </div>
+  <a class="btn btn--ghost btn--small" href="/admin/agenda">Volver a la agenda</a>
+</div>
+
+{% if saved %}
+<div class="form-success" role="status">El cierre del día se guardó correctamente.</div>
+{% endif %}
+
+{% if recalculated %}
+<div class="form-success" role="status">El cierre del día se actualizó con los datos actuales.</div>
+{% endif %}
+
+{% if error == "fecha-invalida" %}
+<div class="form-alert" role="alert">Elegí una fecha válida para cerrar el día.</div>
+{% elif error == "fecha-futura" %}
+<div class="form-alert" role="alert">No podés cerrar un día futuro.</div>
+{% elif error == "sin-barberos" %}
+<div class="form-alert" role="alert">Todavía no hay barberos para registrar en el cierre.</div>
+{% endif %}
+
+<section class="closing-panel" aria-labelledby="closing-tools-title">
+  <div class="closing-tools-head">
+    <div>
+      <span class="eyebrow">Registro persistente</span>
+      <h2 id="closing-tools-title">Cerrar o recalcular un día</h2>
+    </div>
+    <p>Si un día ya estaba cerrado, se vuelve a calcular con los turnos y pagos actuales.</p>
+  </div>
+
+  <div class="closing-tools">
+    <form class="admin-filters closing-filter" method="get" action="/admin/cierres">
+      <input type="hidden" name="month" value="{{ period.key }}">
+      <label class="field field--compact">
+        <span class="field-label">Barbero</span>
+        <select class="input" name="barber_id">
+          <option value="">Todos</option>
+          {% for barber in barbers %}
+          <option value="{{ barber.id }}" {% if selected_barber_id == barber.id %}selected{% endif %}>{{ barber.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn btn--ghost btn--small" type="submit">Filtrar</button>
+      {% if selected_barber_id %}
+      <a class="text-link closing-clear" href="/admin/cierres?month={{ period.key }}">Limpiar</a>
+      {% endif %}
+    </form>
+
+    <form class="closing-form" method="post" action="/admin/cierres">
+      <label class="field field--compact">
+        <span class="field-label">Fecha a cerrar</span>
+        <input class="input" type="date" name="date" value="{{ today }}" max="{{ today }}" required>
+      </label>
+      <button class="btn btn--accent btn--small" type="submit">Cerrar / recalcular día</button>
+    </form>
+  </div>
+</section>
+
+<div class="closing-month-nav">
+  <a class="month-arrow" href="/admin/cierres?month={{ period.previous }}{% if selected_barber_id %}&barber_id={{ selected_barber_id }}{% endif %}" aria-label="Mes anterior">←</a>
+  <div>
+    <span class="eyebrow">Historial</span>
+    <strong>{{ period.label }}</strong>
+  </div>
+  <a class="month-arrow" href="/admin/cierres?month={{ period.next }}{% if selected_barber_id %}&barber_id={{ selected_barber_id }}{% endif %}" aria-label="Mes siguiente">→</a>
+</div>
+
+<div class="metric-grid closing-metrics" aria-label="Totales del mes">
+  <div class="metric-card">
+    <span class="metric-label">Completados</span>
+    <strong>{{ totals.completed }}</strong>
+    <small>{{ totals.appointments }} turnos registrados</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Facturado</span>
+    <strong class="metric-text">{{ totals.revenue|money }}</strong>
+    <small>servicios completados</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Cobrado</span>
+    <strong class="metric-text">{{ totals.collected|money }}</strong>
+    <small>pagos registrados</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Pendiente</span>
+    <strong class="metric-text">{{ totals.pending|money }}</strong>
+    <small>saldo de completados</small>
+  </div>
+</div>
+
+{% if rows %}
+<div class="table-shell">
+  <table class="admin-table admin-table--closings">
+    <thead>
+      <tr>
+        <th scope="col">Fecha</th>
+        <th scope="col">Barbero</th>
+        <th scope="col">Turnos</th>
+        <th scope="col">Facturado</th>
+        <th scope="col">Cobrado</th>
+        <th scope="col">Pendiente</th>
+        <th scope="col">Cerrado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><span class="table-number">{{ row.business_date|local_date }}</span></td>
+        <td>
+          <a class="table-link" href="/admin/cierres?month={{ period.key }}&barber_id={{ row.barber_id }}">{{ row.barber_name }}</a>
+        </td>
+        <td>
+          <span>{{ row.completed_count }} completados</span>
+          <small class="closing-breakdown">{{ row.cancelled_count }} cancelados · {{ row.no_show_count }} ausencias</small>
+        </td>
+        <td><span class="table-number">{{ row.service_revenue_cents|money }}</span></td>
+        <td><span class="table-number">{{ row.collected_cents|money }}</span></td>
+        <td><span class="table-number">{{ row.pending_cents|money }}</span></td>
+        <td><span class="closing-stamp">{{ row.closed_at|local_datetime("%d/%m/%Y · %H:%M") }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="admin-footnote">
+  Los importes se guardan como foto del día. Si después corregís un turno o un pago,
+  usá “Cerrar / recalcular día” para actualizar ese registro.
+</p>
+{% else %}
+<div class="empty-panel admin-empty">
+  <span class="placeholder-mark" aria-hidden="true">—</span>
+  <h3>No hay cierres guardados en {{ period.label }}.</h3>
+  <p>
+    Al finalizar el día se genera un registro por barbero, incluso con cero movimiento.
+    También podés cerrarlo ahora desde el formulario de arriba.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

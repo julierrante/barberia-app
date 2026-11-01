@@ -1,0 +1,174 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Mi perfil · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-head">
+  <div>
+    <span class="eyebrow">Mi perfil</span>
+    <h1 class="display display--sm">La casa, <em>bajo tu mando</em>.</h1>
+    <p>
+      Tu cuenta de dueña concentra las acciones de administración: crear, editar, aprobar
+      y eliminar perfiles de barberos. Los barberos solo ven su propia agenda y su perfil.
+    </p>
+  </div>
+  <a class="btn btn--ghost btn--small" href="/admin">Volver al inicio</a>
+</div>
+
+{% if created %}
+<div class="form-success" role="status">El barbero se creó correctamente.</div>
+{% endif %}
+
+{% if updated %}
+<div class="form-success" role="status">El estado del barbero se actualizó.</div>
+{% endif %}
+
+{% if deleted %}
+<div class="form-success" role="status">El perfil se eliminó. Se revocó su acceso y se conservó el historial de turnos y cierres.</div>
+{% endif %}
+
+{% if status_error == "sin-horarios" %}
+<div class="form-alert" role="alert">Para aprobar el perfil, primero cargá al menos un día y horario de trabajo.</div>
+{% elif status_error == "turnos-pendientes" %}
+<div class="form-alert" role="alert">
+  No se puede eliminar el perfil: todavía tiene turnos confirmados o en curso.
+  Completalos, cancelalos o marcalos como ausencia y volvé a intentar.
+</div>
+{% endif %}
+
+<div class="metric-grid" aria-label="Resumen del equipo">
+  <div class="metric-card">
+    <span class="metric-label">En el equipo</span>
+    <strong>{{ metrics.team }}</strong>
+    <small>perfiles cargados</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Activos</span>
+    <strong>{{ metrics.active }}</strong>
+    <small>visibles en la web</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Pendientes</span>
+    <strong>{{ metrics.pending }}</strong>
+    <small>esperando aprobación</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Con acceso</span>
+    <strong>{{ metrics.with_access }}</strong>
+    <small>pueden entrar al panel</small>
+  </div>
+</div>
+
+<section class="profile-form-section owner-account" aria-labelledby="owner-account-title">
+  <div class="section-head">
+    <div>
+      <span class="eyebrow">Cuenta</span>
+      <h2 id="owner-account-title">Tu acceso</h2>
+    </div>
+    <span class="status-pill status-pill--confirmed">Administradora</span>
+  </div>
+  <dl class="account-facts">
+    <div>
+      <dt>Usuario</dt>
+      <dd>{{ owner_username }}</dd>
+    </div>
+    <div>
+      <dt>Rol</dt>
+      <dd>Dueña · Administración total</dd>
+    </div>
+    <div>
+      <dt>Alcance</dt>
+      <dd>Equipo, agenda, clientes y cierres</dd>
+    </div>
+    <div>
+      <dt>Zona horaria</dt>
+      <dd>{{ business_timezone }}</dd>
+    </div>
+  </dl>
+  <p class="field-hint">
+    Tu usuario y contraseña se configuran en el servidor con ADMIN_USERNAME y ADMIN_PASSWORD.
+    Los barberos no pueden entrar a esta sección ni ejecutar acciones de administración.
+  </p>
+</section>
+
+<section class="owner-team" aria-labelledby="owner-team-title">
+  <div class="owner-team-head">
+    <div>
+      <span class="eyebrow">Administración</span>
+      <h2 id="owner-team-title">Acciones sobre el equipo</h2>
+    </div>
+    <div class="owner-team-actions">
+      <a class="btn btn--accent btn--small" href="/admin/barberos/nuevo">Agregar barbero</a>
+      <a class="btn btn--ghost btn--small" href="/admin/barberos">Ver equipo completo</a>
+    </div>
+  </div>
+
+  {% if barbers %}
+  <div class="table-shell">
+    <table class="admin-table admin-table--owner">
+      <thead>
+        <tr>
+          <th scope="col">Barbero</th>
+          <th scope="col">Acceso</th>
+          <th scope="col">Estado</th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for barber in barbers %}
+        <tr>
+          <td>
+            <div class="client-cell">
+              {% if barber.avatar_url %}
+              <img class="barber-avatar" src="{{ barber.avatar_url }}" alt="" width="36" height="36">
+              {% else %}
+              <span class="client-avatar" aria-hidden="true">{{ barber.name[0] }}</span>
+              {% endif %}
+              <span>
+                <a class="table-link" href="/admin/barberos/{{ barber.id }}">{{ barber.name }}</a>
+                <small>{{ barber.tagline or "Sin frase corta" }}</small>
+              </span>
+            </div>
+          </td>
+          <td>
+            {% if barber.account %}
+            <span>{{ barber.account.email }}</span>
+            {% else %}
+            <span class="text-warning">Sin acceso</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="status-pill status-pill--{{ 'confirmed' if barber.active else 'pending' }}">
+              {{ "Activo" if barber.active else "Pendiente" }}
+            </span>
+          </td>
+          <td class="table-action">
+            <div class="table-actions">
+              <a class="text-link" href="/admin/barberos/{{ barber.id }}">Editar →</a>
+              {% if not barber.active %}
+              <form method="post" action="/admin/barberos/{{ barber.id }}/estado">
+                <input type="hidden" name="active" value="1">
+                <input type="hidden" name="origin" value="perfil">
+                <button class="link-button" type="submit" {% if not barber.schedules %}disabled title="Cargá horarios antes de aprobar"{% endif %}>Aprobar</button>
+              </form>
+              {% endif %}
+              <form method="post" action="/admin/barberos/{{ barber.id }}/eliminar" onsubmit="return confirm('¿Eliminar este perfil? Se quita de la web, del equipo y se revoca su acceso. El historial de turnos y cierres se conserva.');">
+                <input type="hidden" name="origin" value="perfil">
+                <button class="link-button link-button--danger" type="submit">Eliminar</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-panel admin-empty">
+    <span class="placeholder-mark" aria-hidden="true">—</span>
+    <h3>Todavía no hay barberos.</h3>
+    <p>Creá el primer perfil para empezar a armar la agenda del equipo.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

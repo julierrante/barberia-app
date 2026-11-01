@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}No encontramos eso · {{ app_name }}{% endblock %}
+{% block body_class %}not-found-page{% endblock %}
+
+{% block content %}
+<section class="not-found">
+  <div class="shell not-found-inner">
+    <span class="not-found-code">404</span>
+    <span class="eyebrow">Fuera de la agenda</span>
+    <h1 class="display display--md">No encontramos<br><em>ese turno.</em></h1>
+    <p>{{ message }}</p>
+    <div class="hero-actions">
+      <a class="btn btn--accent" href="/">Volver al inicio</a>
+      <a class="btn btn--ghost" href="/#reservar">Reservar un turno</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

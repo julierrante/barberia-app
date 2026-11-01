@@ -1,0 +1,94 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Clientes · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-head admin-page-head--clients">
+  <div>
+    <span class="eyebrow">Clientes</span>
+    <h1 class="display display--sm">Memoria de <em>la silla</em>.</h1>
+    <p>Historial, ticket promedio y saldos pendientes de cada persona que pasó por la barbería.</p>
+  </div>
+
+  <form class="client-search" method="get" action="/admin/clientes">
+    <label class="search-field">
+      <span class="field-label">Buscar cliente</span>
+      <input
+        class="input"
+        type="search"
+        name="q"
+        value="{{ query }}"
+        placeholder="Nombre, apellido o teléfono"
+        autocomplete="off"
+      >
+    </label>
+    <button class="btn btn--accent btn--small" type="submit">Buscar</button>
+  </form>
+</div>
+
+<div class="table-meta">
+  <span>{{ rows|length }} {% if rows|length == 1 %}cliente{% else %}clientes{% endif %}</span>
+  {% if query %}
+  <span class="muted">Resultados para “{{ query }}”</span>
+  <a class="text-link" href="/admin/clientes">Limpiar búsqueda</a>
+  {% endif %}
+</div>
+
+{% if rows %}
+<div class="table-shell">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th scope="col">Cliente</th>
+        <th scope="col">Contacto</th>
+        <th scope="col">Visitas</th>
+        <th scope="col">Último turno</th>
+        <th scope="col" class="table-number">Cobrado</th>
+        <th scope="col" class="table-number">Saldo</th>
+        <th scope="col"><span class="sr-only">Acciones</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for client, stats in rows %}
+      <tr>
+        <td>
+          <div class="client-cell">
+            <span class="client-avatar" aria-hidden="true">{{ client.first_name[0] }}{{ client.last_name[0] }}</span>
+            <span>
+              <a class="table-link" href="/admin/clientes/{{ client.id }}">{{ client.full_name }}</a>
+              {% if client.email %}<small>{{ client.email }}</small>{% endif %}
+            </span>
+          </div>
+        </td>
+        <td>
+          <a class="phone-link" href="tel:{{ client.phone }}">{{ client.phone }}</a>
+        </td>
+        <td>{{ stats.visits_count }}</td>
+        <td>{{ stats.last_visit_at|local_date }}</td>
+        <td class="table-number">{{ stats.total_paid_cents|money }}</td>
+        <td class="table-number {% if stats.pending_balance_cents > 0 %}text-warning{% endif %}">
+          {{ stats.pending_balance_cents|money }}
+        </td>
+        <td class="table-action">
+          <a class="text-link" href="/admin/clientes/{{ client.id }}">Ver historial →</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-panel admin-empty">
+  <span class="placeholder-mark" aria-hidden="true">—</span>
+  <h3>No encontramos clientes para esa búsqueda.</h3>
+  <p>Probá con otro nombre o teléfono. Los clientes se crean automáticamente al reservar.</p>
+  {% if query %}
+  <a class="btn btn--ghost btn--small" href="/admin/clientes">Ver todos</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<p class="admin-footnote">
+  Los datos se generan a partir de las reservas. El panel no elimina clientes ni turnos.
+</p>
+{% endblock %}

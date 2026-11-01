@@ -1,0 +1,125 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Reporte mensual · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-head admin-page-head--clients">
+  <div>
+    <span class="eyebrow">Facturación</span>
+    <h1 class="display display--sm">El mes, <em>en números</em>.</h1>
+    <p>
+      Resumen de lo facturado, cobrado y pendiente, con desglose por barbero y por
+      día. Se calcula sobre los cierres diarios guardados; si un día aún no se cerró,
+      no figura acá.
+    </p>
+  </div>
+  <a class="btn btn--ghost btn--small" href="/admin/cierres">Ver cierres diarios</a>
+</div>
+
+<div class="closing-month-nav">
+  <a class="month-arrow" href="/admin/reportes?month={{ period.previous }}" aria-label="Mes anterior">←</a>
+  <div>
+    <span class="eyebrow">Período</span>
+    <strong>{{ period.label }}</strong>
+  </div>
+  <a class="month-arrow" href="/admin/reportes?month={{ period.next }}" aria-label="Mes siguiente">→</a>
+</div>
+
+{% if barber_rows %}
+<div class="metric-grid closing-metrics" aria-label="Totales del mes">
+  <div class="metric-card">
+    <span class="metric-label">Facturado</span>
+    <strong class="metric-text">{{ totals.revenue|money }}</strong>
+    <small>{{ totals.completed }} servicios completados</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Cobrado</span>
+    <strong class="metric-text">{{ totals.collected|money }}</strong>
+    <small>pagos registrados</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Pendiente</span>
+    <strong class="metric-text">{{ totals.pending|money }}</strong>
+    <small>saldo de completados</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Ausentismos</span>
+    <strong>{{ totals.no_show_rate }}%</strong>
+    <small>{{ totals.no_show }} de {{ totals.appointments }} turnos · {{ totals.active_days }} días con movimiento</small>
+  </div>
+</div>
+
+<section class="report-section" aria-labelledby="report-barbers-title">
+  <div class="report-section-head">
+    <span class="eyebrow">Equipo</span>
+    <h2 id="report-barbers-title">Facturación por barbero</h2>
+  </div>
+  <div class="table-shell">
+    <table class="admin-table admin-table--closings">
+      <thead>
+        <tr>
+          <th scope="col">Barbero</th>
+          <th scope="col">Facturado</th>
+          <th scope="col">Cobrado</th>
+          <th scope="col">Pendiente</th>
+          <th scope="col">Turnos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in barber_rows %}
+        <tr>
+          <td>
+            <a class="table-link" href="/admin/cierres?month={{ period.key }}&barber_id={{ row.barber_id }}">{{ row.name }}</a>
+            <div class="report-share-track" aria-hidden="true">
+              <div class="report-share" style="width: {{ row.share }}%"></div>
+            </div>
+          </td>
+          <td><span class="table-number">{{ row.revenue|money }}</span></td>
+          <td><span class="table-number">{{ row.collected|money }}</span></td>
+          <td><span class="table-number">{{ row.pending|money }}</span></td>
+          <td>
+            <span>{{ row.completed }} completados</span>
+            <small class="closing-breakdown">{{ row.cancelled }} cancelados · {{ row.no_show }} ausencias</small>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="report-section" aria-labelledby="report-trend-title">
+  <div class="report-section-head">
+    <span class="eyebrow">Ritmo del mes</span>
+    <h2 id="report-trend-title">Facturado por día</h2>
+  </div>
+  <div class="report-chart" role="img" aria-label="Gráfico de facturación diaria de {{ period.label }}">
+    {% for day in trend %}
+    <div
+      class="report-chart-bar {% if day.revenue == 0 %}report-chart-bar--zero{% endif %}"
+      style="height: {% if max_day_revenue > 0 %}{{ (100 * day.revenue / max_day_revenue)|round(1) }}{% else %}0{% endif %}%"
+      title="{{ day.date|local_date }}: {{ day.revenue|money }}"
+    ></div>
+    {% endfor %}
+  </div>
+  <div class="report-chart-x" aria-hidden="true">
+    <span>1</span>
+    {% if last_day >= 5 %}<span>5</span>{% endif %}
+    {% if last_day >= 10 %}<span>10</span>{% endif %}
+    {% if last_day >= 15 %}<span>15</span>{% endif %}
+    {% if last_day >= 20 %}<span>20</span>{% endif %}
+    {% if last_day >= 25 %}<span>25</span>{% endif %}
+    <span>{{ last_day }}</span>
+  </div>
+</section>
+{% else %}
+<div class="empty-panel admin-empty">
+  <span class="placeholder-mark" aria-hidden="true">—</span>
+  <h3>No hay cierres guardados en {{ period.label }}.</h3>
+  <p>
+    El reporte se arma con los cierres diarios. Cerrá los días desde
+    <a class="text-link" href="/admin/cierres">Cierres</a> para ver el mes acá.
+  </p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Tu turno · {{ app_name }}{% endblock %}
+{% block body_class %}confirmation-page{% endblock %}
+
+{% block content %}
+<section class="section confirmation-section">
+  <div class="shell confirmation-shell">
+    <div class="confirmation-topline">
+      <a class="text-link text-link--muted" href="/">← Volver a la barbería</a>
+      <span class="status-badge status-badge--{{ appointment.status.value }}" id="status-badge">
+        <span class="status-dot" aria-hidden="true"></span>{{ appointment.status|status_label }}
+      </span>
+    </div>
+
+    <div class="ticket" id="confirmation-data" data-code="{{ appointment.public_code }}" data-status="{{ appointment.status.value }}" data-timezone="{{ business_timezone }}">
+      <div class="ticket-main">
+        <span class="eyebrow">Comprobante de turno {{ appointment.public_code[:8]|upper }}</span>
+
+        {% set status = appointment.status.value %}
+        {% if status == "confirmed" %}
+        <h1 class="display display--md" id="confirmation-title">Tu turno está<br><em>confirmado</em>.</h1>
+        <p class="ticket-lead" id="confirmation-lead">
+          Guardá este comprobante. El día del turno vas a poder ver acá la
+          llegada estimada actualizada.
+        </p>
+        {% elif status == "in_progress" %}
+        <h1 class="display display--md" id="confirmation-title">Tu turno está<br><em>en marcha</em>.</h1>
+        <p class="ticket-lead" id="confirmation-lead">El barbero ya empezó el servicio.</p>
+        {% elif status == "completed" %}
+        <h1 class="display display--md" id="confirmation-title">Servicio<br><em>completado</em>.</h1>
+        <p class="ticket-lead" id="confirmation-lead">Gracias por pasar. Este turno ya quedó en tu historial.</p>
+        {% elif status == "cancelled" %}
+        <h1 class="display display--md" id="confirmation-title">Turno<br><em>cancelado</em>.</h1>
+        <p class="ticket-lead" id="confirmation-lead">El horario fue liberado. Podés reservar uno nuevo cuando quieras.</p>
+        {% else %}
+        <h1 class="display display--md" id="confirmation-title">Turno<br><em>no asistido</em>.</h1>
+        <p class="ticket-lead" id="confirmation-lead">Este turno figura como no asistido.</p>
+        {% endif %}
+
+        <div class="ticket-service">
+          <div>
+            <span class="detail-label">Servicio</span>
+            <strong>{{ appointment.service.name }}</strong>
+          </div>
+          <div>
+            <span class="detail-label">Barbero</span>
+            <strong>{{ appointment.barber.name }}</strong>
+          </div>
+        </div>
+
+        <dl class="ticket-grid">
+          <div>
+            <dt>Fecha</dt>
+            <dd>{{ appointment.start_at|long_date }}</dd>
+          </div>
+          <div>
+            <dt>Hora</dt>
+            <dd>{{ appointment.start_at|local_time }}</dd>
+          </div>
+          <div>
+            <dt>Duración</dt>
+            <dd>{{ appointment.duration_minutes|duration }}</dd>
+          </div>
+          <div>
+            <dt>A nombre de</dt>
+            <dd>{{ appointment.client.first_name }} {{ appointment.client.last_name }}</dd>
+          </div>
+        </dl>
+
+        {% if whatsapp_mode == "cloud" and status in ("confirmed", "in_progress") %}
+        <p class="reminder-note">
+          <span aria-hidden="true">✆</span>
+          Te vamos a enviar recordatorios por WhatsApp 90 y 60 minutos antes del turno.
+        </p>
+        {% endif %}
+
+        {% if status == "confirmed" %}
+        <div class="attendance-panel" id="attendance-panel" data-endpoint="/api/appointments/{{ appointment.public_code }}/confirm" data-confirmed="{{ 'true' if appointment.client_confirmed_at else 'false' }}">
+          {% if appointment.client_confirmed_at %}
+          <p class="attendance-note attendance-note--ok">
+            <span aria-hidden="true">✓</span>
+            Asistencia confirmada. ¡Nos vemos el día del turno!
+          </p>
+          {% else %}
+          <p class="attendance-note">
+            Ayudá a {{ appointment.barber.name.split()[0] }} a organizar la agenda
+            y confirmá que vas a asistir. Te vamos a recordar el turno por WhatsApp.
+          </p>
+          <button type="button" class="btn btn--accent" id="attendance-confirm">Confirmar asistencia</button>
+          <div class="form-alert" id="attendance-error" role="alert" hidden></div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if status in ("confirmed", "in_progress") %}
+        <div class="live-eta" id="live-eta">
+          <div class="live-eta-top">
+            <span class="live-indicator" aria-hidden="true"></span>
+            <span class="detail-label">Llegada estimada en vivo</span>
+          </div>
+          <div class="live-eta-main">
+            <strong id="eta-value">
+              {% if queue_entry and queue_entry.eta_start_at %}
+                {{ queue_entry.eta_start_at|local_time }}
+              {% else %}
+                —
+              {% endif %}
+            </strong>
+            <span class="delay-chip {% if not queue_entry or queue_entry.delay_minutes == 0 %}delay-chip--ok{% endif %}" id="delay-chip">
+              {% if queue_entry and queue_entry.delay_minutes > 0 %}
+                +{{ queue_entry.delay_minutes }} min
+              {% else %}
+                En horario
+              {% endif %}
+            </span>
+          </div>
+          <p id="eta-note">
+            {% if status == "in_progress" %}
+            Estimación según el avance del servicio actual.
+            {% else %}
+            Se actualiza con la cola real del barbero el día del turno.
+            {% endif %}
+          </p>
+        </div>
+        {% endif %}
+
+        {% if status == "cancelled" and appointment.cancel_reason %}
+        <p class="cancellation-reason">{{ appointment.cancel_reason }}</p>
+        {% endif %}
+      </div>
+
+      <aside class="ticket-side">
+        <div class="payment-panel">
+          <div class="payment-panel-head">
+            <span class="detail-label">Resumen de pago</span>
+            <span class="ticket-duration">{{ appointment.duration_minutes|duration }}</span>
+          </div>
+          <dl class="payment-lines">
+            <div><dt>Servicio</dt><dd>{{ appointment.price_cents|money }}</dd></div>
+            <div><dt>Abonado</dt><dd>{{ appointment.paid_cents|money }}</dd></div>
+            <div class="payment-balance"><dt>Saldo</dt><dd>{{ appointment.balance_cents|money }}</dd></div>
+          </dl>
+
+          {% if appointment.payments %}
+          <ul class="payment-list">
+            {% for payment in appointment.payments %}
+            <li>
+              <span>
+                {{ payment.kind|payment_kind_label }}
+                <small>{{ payment.method|payment_method_label }} · {{ payment.status|payment_status_label }}</small>
+              </span>
+              <strong>{{ payment.amount_cents|money }}</strong>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+
+          {% if has_mock_payment %}
+          <p class="payment-demo-note">Los pagos online mostrados se generaron en modo demo.</p>
+          {% endif %}
+        </div>
+
+        {% if appointment.barber.mp_alias and status in ("confirmed", "in_progress", "completed") %}
+        <div class="tip-panel">
+          <span class="detail-label">Propina para {{ appointment.barber.name.split()[0] }}</span>
+          <p>Si querés dejarle una propina, transferila directo a su alias de Mercado Pago.</p>
+          <div class="tip-alias">
+            <code id="tip-alias-value">{{ appointment.barber.mp_alias }}</code>
+            <button type="button" class="btn btn--dark btn--small" id="copy-alias">Copiar alias</button>
+          </div>
+          <p class="field-hint" id="copy-alias-status" role="status" hidden>Alias copiado.</p>
+          <p class="tip-note">La propina va directamente al barbero. La barbería no procesa ese pago.</p>
+        </div>
+        {% endif %}
+
+        <div class="ticket-code-box">
+          <span class="detail-label">Código de reserva</span>
+          <strong>{{ appointment.public_code[:8]|upper }}</strong>
+          <p>Usalo para identificar tu turno en la barbería.</p>
+        </div>
+      </aside>
+    </div>
+
+    <section class="rating-panel" id="rating-panel" data-endpoint="/api/appointments/{{ appointment.public_code }}/rating" data-has-rating="{{ 'true' if appointment.rating else 'false' }}" {% if status != "completed" %}hidden{% endif %}>
+      <div class="rating-panel-head">
+        <span class="eyebrow">Tu opinión</span>
+        <h2>¿Cómo te atendió {{ appointment.barber.name }}?</h2>
+        <p>Tu calificación ayuda a que más clientes elijan bien su próximo turno.</p>
+      </div>
+
+      <div class="rating-summary" id="rating-summary" {% if not appointment.rating %}hidden{% endif %}>
+        <strong id="rating-summary-stars">{{ appointment.rating.stars if appointment.rating else "" }}</strong>
+        <span id="rating-summary-score">{% if appointment.rating %}{{ appointment.rating.score }} de 5{% endif %}</span>
+        <p id="rating-summary-comment">{{ appointment.rating.comment if appointment.rating and appointment.rating.comment else "" }}</p>
+      </div>
+
+      <form class="rating-form" id="rating-form" {% if appointment.rating %}hidden{% endif %}>
+        <fieldset class="rating-fieldset">
+          <legend class="field-label">Elegí una puntuación</legend>
+          <div class="rating-stars" id="rating-stars">
+            {% for score in range(1, 6) %}
+            <label class="rating-star" data-score="{{ score }}">
+              <input type="radio" name="score" value="{{ score }}" required>
+              <span class="rating-star-icon" aria-hidden="true">★</span>
+              <span class="visually-hidden">{{ score }} estrellas</span>
+            </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <label class="field">
+          <span class="field-label">Comentario <span class="field-optional">opcional</span></span>
+          <textarea class="input input--textarea" id="rating-comment" name="comment" rows="3" maxlength="500" placeholder="Contanos qué tal estuvo el servicio."></textarea>
+        </label>
+        <div class="form-alert" id="rating-error" role="alert" hidden></div>
+        <button type="submit" class="btn btn--accent" id="rating-submit">Enviar calificación</button>
+      </form>
+    </section>
+
+    <div class="confirmation-actions">
+      <a class="btn btn--ghost" href="/#reservar">Reservar otro turno</a>
+
+      {% if cancellable %}
+      <details class="cancel-panel">
+        <summary>¿Necesitás cancelar?</summary>
+        <div class="cancel-body">
+          <p>
+            Confirmá con el teléfono que usaste al reservar. El horario se libera
+            al instante. Las señas, si corresponden, se rigen por la política de la barbería.
+          </p>
+          <form id="cancel-form">
+            <label class="field">
+              <span class="field-label">Teléfono</span>
+              <input
+                class="input"
+                type="tel"
+                id="cancel-phone"
+                name="phone"
+                autocomplete="tel"
+                inputmode="tel"
+                placeholder="El teléfono de la reserva"
+                required
+              >
+            </label>
+            <button type="submit" class="btn btn--danger" id="cancel-submit">Cancelar turno</button>
+          </form>
+          <div class="form-alert" id="cancel-error" role="alert" hidden></div>
+        </div>
+      </details>
+      {% endif %}
+
+      <div class="cancel-success" id="cancel-success" role="status" hidden>
+        <strong>Turno cancelado.</strong>
+        <p>El horario quedó liberado. Guardá este comprobante como registro de la cancelación.</p>
+      </div>
+    </div>
+
+    <p class="confirmation-footnote">
+      Guardá el enlace de esta página para volver a consultar el estado del turno.
+    </p>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/confirmation.js" defer></script>
+{% endblock %}

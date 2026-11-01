@@ -1,0 +1,68 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Mi perfil · {{ app_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-head">
+  <div>
+    <span class="eyebrow">Mi perfil</span>
+    <h1 class="display display--sm">Tu marca, <em>tu agenda</em>.</h1>
+    <p>Actualizá tu foto, tu descripción y los días que trabajás. Los cambios impactan directo en la web pública.</p>
+  </div>
+  <a class="btn btn--ghost btn--small" href="/mi-agenda">Volver a mi agenda</a>
+</div>
+
+{% if welcome %}
+<div class="form-success" role="status">
+  Tu perfil se creó. Ya podés completar la foto y los horarios; un administrador lo va a aprobar para publicarlo.
+</div>
+{% endif %}
+
+{% if saved %}
+<div class="form-success" role="status">Tu perfil se actualizó correctamente.</div>
+{% endif %}
+
+{% if errors %}
+<div class="form-alert" role="alert">
+  {% for error in errors %}<div>{{ error }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<form class="profile-form" method="post" action="/mi-perfil" enctype="multipart/form-data">
+  {% include "admin/_profile_fields.html" %}
+
+  <section class="profile-form-section profile-form-section--account">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Acceso</span>
+        <h2>Tu cuenta</h2>
+      </div>
+      <span class="status-pill status-pill--{{ 'confirmed' if barber.active else 'pending' }}">
+        {{ "Perfil activo" if barber.active else "Pendiente de aprobación" }}
+      </span>
+    </div>
+    <dl class="account-facts">
+      <div>
+        <dt>Email</dt>
+        <dd>{{ barber.account.email if barber.account else "Sin acceso configurado" }}</dd>
+      </div>
+      <div>
+        <dt>Visible en la web</dt>
+        <dd>{{ "Sí, ya podés recibir turnos" if barber.active else "Todavía no; esperá la aprobación" }}</dd>
+      </div>
+    </dl>
+    <p class="field-hint">Para cambiar el email o la contraseña, pedile a administración que actualice tu acceso.</p>
+  </section>
+
+  <div class="form-actions">
+    <a class="btn btn--ghost" href="/mi-agenda">Cancelar</a>
+    <button class="btn btn--accent" type="submit">Guardar mi perfil</button>
+  </div>
+</form>
+
+{% include "admin/_portfolio_manager.html" %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/profile.js" defer></script>
+{% endblock %}
