@@ -91,6 +91,51 @@ barber_specialties = Table(
     Column("specialty_id", ForeignKey("specialties.id", ondelete="CASCADE"), primary_key=True),
 )
 
+class Barberia(Base):
+    __tablename__ = "barberias"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    nombre: Mapped[str] = mapped_column(
+        String(120),
+        nullable=False
+    )
+
+    slug: Mapped[str] = mapped_column(
+        String(140),
+        unique=True,
+        index=True,
+        nullable=False
+    )
+
+    descripcion: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    logo_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True
+    )
+
+    color_primario: Mapped[str] = mapped_column(
+        String(7),
+        default="#000000",
+        nullable=False
+    )
+
+    activa: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        nullable=False
+    )
+
+    creada_en: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        default=utc_now,
+        nullable=False
+    )
+
 
 class Client(Base):
     __tablename__ = "clients"
