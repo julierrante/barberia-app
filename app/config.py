@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     app_name: str = "Barbería Norte"
     app_base_url: str = "http://127.0.0.1:8000"
+    saas_base_domain: str = "tuapp.com"
+    saas_local_barberia_slug: str = "barberia-norte"
+
     database_url: str = "sqlite:///./barberia.db"
     business_timezone: str = "America/Argentina/Buenos_Aires"
 
