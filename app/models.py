@@ -91,6 +91,7 @@ barber_specialties = Table(
     Column("specialty_id", ForeignKey("specialties.id", ondelete="CASCADE"), primary_key=True),
 )
 
+
 class Barberia(Base):
     __tablename__ = "barberias"
 
@@ -136,6 +137,10 @@ class Barberia(Base):
         nullable=False
     )
 
+    barberos: Mapped[list[Barber]] = relationship(
+        back_populates="barberia"
+    )
+
 
 class Client(Base):
     __tablename__ = "clients"
@@ -177,6 +182,14 @@ class Barber(Base):
     __tablename__ = "barbers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    barberia_id: Mapped[int | None] = mapped_column(
+        ForeignKey("barberias.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    barberia: Mapped[Barberia | None] = relationship(
+        back_populates="barberos"
+    )
     name: Mapped[str] = mapped_column(String(120))
     slug: Mapped[str] = mapped_column(String(140), unique=True, index=True)
     tagline: Mapped[str | None] = mapped_column(String(200), nullable=True)
