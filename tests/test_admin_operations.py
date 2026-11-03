@@ -6,11 +6,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.main import app
+
 from app.models import (
     Appointment,
     AppointmentStatus,
     Barber,
     BarberAccount,
+    Barberia,
     Client,
     DailyClosing,
     Payment,
@@ -29,8 +31,12 @@ from app.services.closings import (
 )
 from app.timeutils import business_today, local_to_utc
 
-
 def _temporary_barber(db, *, name: str = "Barbero Temporal") -> Barber:
+    barberia = db.scalar(
+        select(Barberia).where(Barberia.slug == "barberia-norte")
+    )
+    assert barberia is not None
+
     return create_barber_profile(
         db,
         BarberProfileData(
@@ -45,8 +51,8 @@ def _temporary_barber(db, *, name: str = "Barbero Temporal") -> Barber:
             schedules=[(0, time(9, 0), time(10, 0))],
             schedule_rows=[],
         ),
+        barberia_id=barberia.id,
     )
-
 
 def _appointment(
     *,

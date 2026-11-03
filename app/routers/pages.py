@@ -25,6 +25,7 @@ from app.formatting import date_input_value
 from app.models import (
     AppointmentStatus,
     Barber,
+    Barberia,
     DailyClosing,
     PaymentMethod,
     Service,
@@ -51,6 +52,7 @@ from app.services.errors import NotFoundError
 from app.services.scheduling import build_queue
 from app.templating import templates
 from app.timeutils import business_today, to_business
+from app.tenancy import obtener_barberia_actual
 
 router = APIRouter(tags=["Páginas"])
 
@@ -196,21 +198,37 @@ def _portfolio_redirect(
 
 
 @router.get("/", response_class=HTMLResponse)
-def home(request: Request, db: Session = Depends(get_db)):
+def home(
+    request: Request,
+    db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
+):
     settings = get_settings()
+
     services = list(
         db.scalars(
             select(Service)
-            .where(Service.active.is_(True))
+            .where(
+                Service.active.is_(True),
+                Service.barberia_id == barberia.id,
+            )
             .order_by(Service.price_cents)
         ).all()
     )
+
     barbers = list(
         db.scalars(
-            select(Barber).where(Barber.active.is_(True)).order_by(Barber.name)
+            select(Barber)
+            .where(
+                Barber.active.is_(True),
+                Barber.barberia_id == barberia.id,
+            )
+            .order_by(Barber.name)
         ).all()
     )
+
     today = business_today()
+
     return templates.TemplateResponse(
         request=request,
         name="index.html",
@@ -218,7 +236,9 @@ def home(request: Request, db: Session = Depends(get_db)):
             "services": services,
             "barbers": barbers,
             "today": today.isoformat(),
-            "max_day": (today + timedelta(days=settings.booking_days_ahead)).isoformat(),
+            "max_day": (
+                today + timedelta(days=settings.booking_days_ahead)
+            ).isoformat(),
             "min_notice_minutes": settings.min_notice_minutes,
             "payments_mode": settings.payments_mode,
             "business_timezone": settings.business_timezone,
@@ -227,12 +247,22 @@ def home(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/barberos", response_class=HTMLResponse)
-def barbers_page(request: Request, db: Session = Depends(get_db)):
+def barbers_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
+):
     barbers = list(
         db.scalars(
-            select(Barber).where(Barber.active.is_(True)).order_by(Barber.name)
+            select(Barber)
+            .where(
+                Barber.active.is_(True),
+                Barber.barberia_id == barberia.id,
+            )
+            .order_by(Barber.name)
         ).all()
     )
+
     return templates.TemplateResponse(
         request=request,
         name="barbers.html",
@@ -245,10 +275,16 @@ def barber_works_page(
     request: Request,
     slug: str,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
 ):
     barber = db.scalar(
-        select(Barber).where(Barber.slug == slug, Barber.active.is_(True))
+        select(Barber).where(
+            Barber.slug == slug,
+            Barber.active.is_(True),
+            Barber.barberia_id == barberia.id,
+        )
     )
+
     if barber is None:
         return _not_found(request, "No encontramos ese barbero.")
 
@@ -264,27 +300,45 @@ def reservation_page(
     request: Request,
     public_code: str,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
 ):
     try:
         appointment = get_appointment_by_code(db, public_code)
+
+        if (
+            appointment.barber.barberia_id != barberia.id
+            or appointment.service.barberia_id != barberia.id
+        ):
+            raise NotFoundError("No encontramos ese turno.")
+
     except NotFoundError as exc:
         return _not_found(request, exc.message)
 
     day = to_business(appointment.start_at).date()
     entries = build_queue(db, appointment.barber, day)
+
     entry = next(
-        (item for item in entries if item.appointment.id == appointment.id), None
+        (
+            item for item in entries
+            if item.appointment.id == appointment.id
+        ),
+        None,
     )
+
     has_mock_payment = any(
-        payment.method == PaymentMethod.mock for payment in appointment.payments
+        payment.method == PaymentMethod.mock
+        for payment in appointment.payments
     )
+
     return templates.TemplateResponse(
         request=request,
         name="confirmation.html",
         context={
             "appointment": appointment,
             "queue_entry": entry,
-            "cancellable": appointment.status == AppointmentStatus.confirmed,
+            "cancellable": (
+                appointment.status == AppointmentStatus.confirmed
+            ),
             "has_mock_payment": has_mock_payment,
             "business_timezone": get_settings().business_timezone,
         },
@@ -536,6 +590,7 @@ def admin_barber_new(
 async def admin_barber_create(
     request: Request,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     form = await request.form()
@@ -552,8 +607,11 @@ async def admin_barber_create(
         if isinstance(upload, UploadFile) and upload.filename:
             stored_avatar_url = store_avatar(await upload.read())
         barber = create_barber_profile(
-            db, data, avatar_url=stored_avatar_url
-        )
+    db,
+    data,
+    barberia_id=barberia.id,
+    avatar_url=stored_avatar_url,
+)
     except ProfileFormError as exc:
         delete_avatar_file(stored_avatar_url)
         context = _barber_form_context(
@@ -1023,6 +1081,7 @@ def barber_register_page(request: Request, db: Session = Depends(get_db)):
 async def barber_register(
     request: Request,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
 ):
     form = await request.form()
     form_state = form_state_from_form(form)
@@ -1035,8 +1094,11 @@ async def barber_register(
         if isinstance(upload, UploadFile) and upload.filename:
             stored_avatar_url = store_avatar(await upload.read())
         barber = create_barber_profile(
-            db, data, avatar_url=stored_avatar_url
-        )
+        db,
+        data,
+        barberia_id=barberia.id,
+        avatar_url=stored_avatar_url,
+)
     except ProfileFormError as exc:
         delete_avatar_file(stored_avatar_url)
         context = _barber_form_context(

@@ -383,21 +383,28 @@ def _account_email_taken(
     return db.scalar(stmt) is not None
 
 
+
 def create_barber_profile(
     db: Session,
     data: BarberProfileData,
     *,
+    barberia_id: int,
     avatar_url: str | None = None,
 ) -> Barber:
     if not data.email or not data.password:
         raise ProfileFormError(
             ["El perfil necesita un email y una contraseña de acceso."]
         )
+
     if _account_email_taken(db, data.email):
-        raise ProfileFormError(["Ya existe una cuenta con ese email."])
+        raise ProfileFormError(
+            ["Ya existe una cuenta con ese email."]
+        )
 
     specialties = _load_specialties(db, data.specialty_ids)
+
     barber = Barber(
+        barberia_id=barberia_id,
         name=data.name,
         slug=unique_slug(db, data.name),
         tagline=data.tagline,
@@ -407,16 +414,23 @@ def create_barber_profile(
         active=data.active,
         specialties=specialties,
         schedules=[
-            WorkSchedule(weekday=weekday, start_time=start, end_time=end)
+            WorkSchedule(
+                weekday=weekday,
+                start_time=start,
+                end_time=end,
+            )
             for weekday, start, end in data.schedules
         ],
     )
+
     BarberAccount(
         email=data.email,
         password_hash=hash_password(data.password),
         barber=barber,
     )
+
     db.add(barber)
+
     try:
         db.commit()
     except IntegrityError:
@@ -424,8 +438,8 @@ def create_barber_profile(
         raise ProfileFormError(
             ["No pudimos guardar el perfil: revisá el email y los horarios."]
         ) from None
-    return barber
 
+    return barber
 
 def update_barber_profile(
     db: Session,

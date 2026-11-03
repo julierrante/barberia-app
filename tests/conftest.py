@@ -76,9 +76,8 @@ def db():
 
 @pytest.fixture
 def client():
-    with TestClient(app) as test_client:
+    with TestClient(app, base_url="http://localhost") as test_client:
         yield test_client
-
 
 @pytest.fixture
 def admin_client(client):

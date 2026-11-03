@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Barber, Service
+from app.models import Barber, Barberia, Service
 from app.schemas import (
     AppointmentPublicOut,
     AvailabilityOut,
@@ -38,8 +38,21 @@ from app.services.scheduling import (
 )
 from app.services.errors import NotFoundError
 from app.timeutils import to_business, utc_now
+from app.tenancy import obtener_barberia_actual
 
 router = APIRouter(prefix="/api", tags=["Público"])
+
+
+def _require_appointment_for_barberia(
+    db: Session, public_code: str, barberia: Barberia
+):
+    appointment = get_appointment_by_code(db, public_code)
+    if (
+        appointment.barber.barberia_id != barberia.id
+        or appointment.service.barberia_id != barberia.id
+    ):
+        raise NotFoundError("No encontramos ese turno.")
+    return appointment
 
 
 def _queue_entry(db: Session, appointment):
@@ -64,29 +77,44 @@ def _public_out(appointment, entry=None) -> AppointmentPublicOut:
 
 
 @router.get("/services", response_model=list[ServiceOut])
-def list_services(db: Session = Depends(get_db)):
+def list_services(
+    db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
+):
     return list(
         db.scalars(
             select(Service)
-            .where(Service.active.is_(True))
+            .where(Service.active.is_(True), Service.barberia_id == barberia.id)
             .order_by(Service.price_cents)
         ).all()
     )
 
 
 @router.get("/barbers", response_model=list[BarberOut])
-def list_barbers(db: Session = Depends(get_db)):
+def list_barbers(
+    db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
+):
     return list(
         db.scalars(
-            select(Barber).where(Barber.active.is_(True)).order_by(Barber.name)
+            select(Barber)
+            .where(Barber.active.is_(True), Barber.barberia_id == barberia.id)
+            .order_by(Barber.name)
         ).all()
     )
 
 
 @router.get("/barbers/{slug}", response_model=BarberOut)
-def get_barber_profile(slug: str, db: Session = Depends(get_db)):
+def get_barber_profile(
+    slug: str,
+    db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
+):
     barber = db.scalar(
-        select(Barber).where(Barber.slug == slug, Barber.active.is_(True))
+        select(Barber).where(
+            Barber.slug == slug, Barber.active.is_(True),
+            Barber.barberia_id == barberia.id,
+        )
     )
     if barber is None:
         raise NotFoundError("No encontramos ese barbero.")
@@ -99,9 +127,12 @@ def get_availability(
     service_id: int,
     booking_date: date = Query(alias="date"),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
 ):
     service = get_service(db, service_id)
     barber = get_barber(db, barber_id)
+    if service.barberia_id != barberia.id or barber.barberia_id != barberia.id:
+        raise NotFoundError("El servicio o barbero no está disponible.")
     validate_booking_day(booking_date)
     slots = available_slots(db, barber, service.duration_minutes, booking_date)
     calendar = calendar_slots(db, barber, service.duration_minutes, booking_date)
@@ -125,14 +156,26 @@ def get_availability(
     response_model=AppointmentPublicOut,
     status_code=201,
 )
-def book_appointment(payload: BookingCreate, db: Session = Depends(get_db)):
+def book_appointment(
+    payload: BookingCreate,
+    db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
+):
+    service = get_service(db, payload.service_id)
+    barber = get_barber(db, payload.barber_id)
+    if service.barberia_id != barberia.id or barber.barberia_id != barberia.id:
+        raise NotFoundError("El servicio o barbero no está disponible.")
     appointment = create_booking(db, payload)
     return _public_out(appointment, _queue_entry(db, appointment))
 
 
 @router.get("/appointments/{public_code}", response_model=AppointmentPublicOut)
-def get_appointment(public_code: str, db: Session = Depends(get_db)):
-    appointment = get_appointment_by_code(db, public_code)
+def get_appointment(
+    public_code: str,
+    db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
+):
+    appointment = _require_appointment_for_barberia(db, public_code, barberia)
     return _public_out(appointment, _queue_entry(db, appointment))
 
 
@@ -144,7 +187,9 @@ def cancel_appointment(
     public_code: str,
     payload: CancelIn,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
 ):
+    _require_appointment_for_barberia(db, public_code, barberia)
     appointment = cancel_customer_booking(db, public_code, payload.phone)
     return _public_out(appointment, _queue_entry(db, appointment))
 
@@ -154,8 +199,11 @@ def cancel_appointment(
     response_model=AppointmentPublicOut,
 )
 def confirm_appointment_attendance(
-    public_code: str, db: Session = Depends(get_db)
+    public_code: str,
+    db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
 ):
+    _require_appointment_for_barberia(db, public_code, barberia)
     appointment = confirm_customer_attendance(db, public_code)
     return _public_out(appointment, _queue_entry(db, appointment))
 
@@ -169,5 +217,7 @@ def rate_served_appointment(
     public_code: str,
     payload: RatingCreate,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
 ):
+    _require_appointment_for_barberia(db, public_code, barberia)
     return rate_appointment(db, public_code, payload)
