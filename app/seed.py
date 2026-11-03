@@ -15,26 +15,21 @@ from app.models import (
 )
 
 
-BARBERIA_INICIAL_SLUG = "barberia-norte"
 
-BARBEROS_DEMO = (
-    "mateo-rios",
-    "thiago-benitez",
-    "camila-duarte",
+BARBERIA_INICIAL_SLUG = "barberia-norte"
+BARBEROS_DEMO = ("mateo-rios", "thiago-benitez", "camila-duarte")
+SERVICIOS_DEMO = (
+    "Corte clásico", "Corte + barba", "Barba y perfilado",
+    "Fade + diseño", "Corte niño",
 )
 
 
 def seed() -> None:
     create_tables()
-
     with SessionLocal() as db:
-        # Buscar o crear la barbería de demostración.
         barberia = db.scalar(
-            select(Barberia).where(
-                Barberia.slug == BARBERIA_INICIAL_SLUG
-            )
+            select(Barberia).where(Barberia.slug == BARBERIA_INICIAL_SLUG)
         )
-
         if barberia is None:
             barberia = Barberia(
                 nombre="Barbería Norte",
@@ -46,7 +41,6 @@ def seed() -> None:
             db.add(barberia)
             db.flush()
 
-        # Si ya existen servicios, no duplicar los datos.
         if db.scalar(select(Service.id).limit(1)) is not None:
             barberos_existentes = db.scalars(
                 select(Barber).where(
@@ -54,20 +48,25 @@ def seed() -> None:
                     Barber.barberia_id.is_(None),
                 )
             ).all()
-
             for barbero in barberos_existentes:
                 barbero.barberia = barberia
 
-            db.commit()
+            # Solo vinculamos los servicios conocidos del demo, no datos ajenos.
+            servicios_existentes = db.scalars(
+                select(Service).where(
+                    Service.name.in_(SERVICIOS_DEMO),
+                    Service.barberia_id.is_(None),
+                )
+            ).all()
+            for servicio in servicios_existentes:
+                servicio.barberia = barberia
 
+            db.commit()
             print("La base ya contiene datos.")
-            print(
-                "Barberos de demostración asociados:",
-                len(barberos_existentes),
-            )
+            print("Barberos de demostración asociados:", len(barberos_existentes))
+            print("Servicios de demostración asociados:", len(servicios_existentes))
             return
 
-        # Crear especialidades.
         specialties = {
             name: Specialty(name=name)
             for name in (
@@ -78,77 +77,61 @@ def seed() -> None:
                 "Diseño de corte",
             )
         }
-
         db.add_all(specialties.values())
 
-        # Crear servicios.
         services = [
             Service(
+                barberia=barberia,
                 name="Corte clásico",
-                description=(
-                    "Asesoramiento, lavado y corte "
-                    "a tijera o máquina."
-                ),
+                description="Asesoramiento, lavado y corte a tijera o máquina.",
                 duration_minutes=30,
                 price_cents=1_200_000,
                 deposit_cents=400_000,
             ),
             Service(
+                barberia=barberia,
                 name="Corte + barba",
-                description=(
-                    "Corte a medida y perfilado de barba "
-                    "con toalla caliente."
-                ),
+                description="Corte a medida y perfilado de barba con toalla caliente.",
                 duration_minutes=45,
                 price_cents=1_800_000,
                 deposit_cents=600_000,
             ),
             Service(
+                barberia=barberia,
                 name="Barba y perfilado",
-                description=(
-                    "Diseño de barba, afeitado de "
-                    "contornos y bálsamo."
-                ),
+                description="Diseño de barba, afeitado de contornos y bálsamo.",
                 duration_minutes=20,
                 price_cents=800_000,
                 deposit_cents=300_000,
             ),
             Service(
+                barberia=barberia,
                 name="Fade + diseño",
-                description=(
-                    "Degradado personalizado con líneas "
-                    "y terminación a navaja."
-                ),
+                description="Degradado personalizado con líneas y terminación a navaja.",
                 duration_minutes=45,
                 price_cents=1_600_000,
                 deposit_cents=500_000,
             ),
             Service(
+                barberia=barberia,
                 name="Corte niño",
-                description=(
-                    "Corte con paciencia para los "
-                    "más chicos, hasta 12 años."
-                ),
+                description="Corte con paciencia para los más chicos, hasta 12 años.",
                 duration_minutes=30,
                 price_cents=1_000_000,
                 deposit_cents=300_000,
             ),
         ]
-
         db.add_all(services)
 
-        # Primer barbero.
         mateo = Barber(
             barberia=barberia,
             name="Mateo Ríos",
             slug="mateo-rios",
             tagline="Fades limpios, detalles precisos.",
             bio=(
-                "Barbero desde 2015. Me formé en cortes "
-                "clásicos y degradados, siempre con una "
-                "lectura atenta de la forma de la cara y "
-                "la rutina de cada cliente. Si querés un "
-                "corte prolijo que aguante la semana, "
+                "Barbero desde 2015. Me formé en cortes clásicos y degradados, "
+                "siempre con una lectura atenta de la forma de la cara y la rutina "
+                "de cada cliente. Si querés un corte prolijo que aguante la semana, "
                 "este es tu lugar."
             ),
             avatar_url="/static/img/barber-mateo.jpg",
@@ -165,11 +148,7 @@ def seed() -> None:
                 ),
             ],
             schedules=[
-                WorkSchedule(
-                    weekday=weekday,
-                    start_time=start,
-                    end_time=end,
-                )
+                WorkSchedule(weekday=weekday, start_time=start, end_time=end)
                 for weekday in (1, 2, 3, 4, 5)
                 for start, end in (
                     (time(10, 0), time(13, 0)),
@@ -177,19 +156,15 @@ def seed() -> None:
                 )
             ],
         )
-
-        # Segundo barbero.
         thiago = Barber(
             barberia=barberia,
             name="Thiago Benítez",
             slug="thiago-benitez",
             tagline="Barba, navaja y ritual.",
             bio=(
-                "Especialista en barba y afeitado "
-                "tradicional. Trabajo el detalle con "
-                "toalla caliente, aceites y una navaja "
-                "que no negocia. También hago cortes "
-                "clásicos y fades con mucha textura."
+                "Especialista en barba y afeitado tradicional. Trabajo el detalle "
+                "con toalla caliente, aceites y una navaja que no negocia. También "
+                "hago cortes clásicos y fades con mucha textura."
             ),
             avatar_url="/static/img/barber-thiago.jpg",
             specialties=[
@@ -205,11 +180,7 @@ def seed() -> None:
                 ),
             ],
             schedules=[
-                WorkSchedule(
-                    weekday=weekday,
-                    start_time=start,
-                    end_time=end,
-                )
+                WorkSchedule(weekday=weekday, start_time=start, end_time=end)
                 for weekday in (0, 1, 2, 3, 4)
                 for start, end in (
                     (time(9, 0), time(13, 0)),
@@ -217,19 +188,15 @@ def seed() -> None:
                 )
             ],
         )
-
-        # Tercer barbero.
         camila = Barber(
             barberia=barberia,
             name="Camila Duarte",
             slug="camila-duarte",
             tagline="Textura, forma y movimiento.",
             bio=(
-                "Me gusta trabajar texturas, capas y "
-                "cortes con movimiento. Cada visita "
-                "empieza con una charla sobre cómo te "
-                "peinás y termina con un acabado fácil "
-                "de mantener en casa."
+                "Me gusta trabajar texturas, capas y cortes con movimiento. "
+                "Cada visita empieza con una charla sobre cómo te peinás y termina "
+                "con un acabado fácil de mantener en casa."
             ),
             avatar_url="/static/img/barber-camila.jpg",
             specialties=[
@@ -245,11 +212,7 @@ def seed() -> None:
                 ),
             ],
             schedules=[
-                WorkSchedule(
-                    weekday=weekday,
-                    start_time=start,
-                    end_time=end,
-                )
+                WorkSchedule(weekday=weekday, start_time=start, end_time=end)
                 for weekday in (2, 3, 4, 5, 6)
                 for start, end in (
                     (time(11, 0), time(15, 0)),

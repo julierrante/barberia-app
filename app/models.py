@@ -141,6 +141,10 @@ class Barberia(Base):
         back_populates="barberia"
     )
 
+    servicios: Mapped[list[Service]] = relationship(
+        back_populates="barberia"
+    )
+
 
 class Client(Base):
     __tablename__ = "clients"
@@ -325,6 +329,14 @@ class Service(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    barberia_id: Mapped[int | None] = mapped_column(
+        ForeignKey("barberias.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    barberia: Mapped[Barberia | None] = relationship(
+        back_populates="servicios"
+    )
     name: Mapped[str] = mapped_column(String(120))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     duration_minutes: Mapped[int] = mapped_column(Integer)
