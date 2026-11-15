@@ -7,8 +7,8 @@ from fastapi import HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
-from app.models import BarberAccount
+from app.models import BarberAccount, OwnerAccount
+from app.tenancy import obtener_slug_barberia
 
 PASSWORD_ALGORITHM = "pbkdf2_sha256"
 PASSWORD_ITERATIONS = 260_000
@@ -24,6 +24,7 @@ class LoginRequired(Exception):
 class StaffIdentity:
     role: str
     display_name: str
+    barberia_id: int
     barber_id: int | None = None
 
     @property
@@ -73,53 +74,80 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(digest.hex(), expected)
 
 
-def credentials_valid(username: str, password: str) -> bool:
-    settings = get_settings()
-    user_ok = secrets.compare_digest(username, settings.admin_username)
-    password_ok = secrets.compare_digest(password, settings.admin_password)
-    return user_ok and password_ok
-
-
 def authenticate_staff(
-    db: Session, identifier: str, password: str
+    db: Session,
+    identifier: str,
+    password: str,
+    barberia_id: int,
 ) -> StaffIdentity | None:
-    if credentials_valid(identifier, password):
-        return StaffIdentity(
-            role="owner",
-            display_name=get_settings().admin_username,
-        )
-
     email = normalize_email(identifier)
     if not email:
         return None
-    account = db.scalar(
-        select(BarberAccount).where(BarberAccount.email == email)
+
+    owner = db.scalar(
+        select(OwnerAccount).where(
+            OwnerAccount.email == email,
+            OwnerAccount.barberia_id == barberia_id,
+        )
     )
-    if (
-        account is None
-        or account.barber.deleted_at is not None
-        or not verify_password(password, account.password_hash)
-    ):
+    if owner is not None and verify_password(password, owner.password_hash):
+        return StaffIdentity(
+            role="owner",
+            display_name=owner.email,
+            barberia_id=owner.barberia_id,
+        )
+
+    account = db.scalar(
+        select(BarberAccount)
+        .join(BarberAccount.barber)
+        .where(
+            BarberAccount.email == email,
+            BarberAccount.barber.has(
+                barberia_id=barberia_id,
+                deleted_at=None,
+            ),
+        )
+    )
+    if account is None or not verify_password(password, account.password_hash):
         return None
     return StaffIdentity(
         role="barber",
         display_name=account.barber.name,
+        barberia_id=barberia_id,
         barber_id=account.barber_id,
     )
 
 
+def session_matches_tenant(request: Request) -> bool:
+    session_slug = request.session.get("barberia_slug")
+    session_id = request.session.get("barberia_id")
+    if not isinstance(session_slug, str) or not session_slug:
+        return False
+    if type(session_id) is not int or session_id <= 0:
+        return False
+    current_slug = obtener_slug_barberia(request.url.hostname or "")
+    return session_slug == current_slug
+
+
 def is_admin(request: Request) -> bool:
-    return bool(request.session.get("is_admin"))
+    return is_owner(request)
 
 
 def is_owner(request: Request) -> bool:
-    return is_admin(request)
+    return bool(
+        session_matches_tenant(request)
+        and request.session.get("role") == "owner"
+        and request.session.get("is_admin") is True
+    )
 
 
 def is_barber(request: Request) -> bool:
+    barber_id = request.session.get("barber_id")
     return bool(
-        request.session.get("role") == "barber"
-        and request.session.get("barber_id")
+        session_matches_tenant(request)
+        and request.session.get("role") == "barber"
+        and type(barber_id) is int
+        and barber_id > 0
     )
 
 

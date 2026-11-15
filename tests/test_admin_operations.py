@@ -287,7 +287,7 @@ def test_owner_home_actions_return_to_home(admin_client, db, mateo):
 
 def test_deleted_barber_session_does_not_loop_on_login(admin_client, db):
     barber = _temporary_barber(db)
-    with TestClient(app) as barber_client:
+    with TestClient(app, base_url="http://localhost") as barber_client:
         login = barber_client.post(
             "/admin/login",
             data={

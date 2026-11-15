@@ -24,6 +24,8 @@ os.environ["DAILY_CLOSE_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select, update
+from app.auth import hash_password
+from app.models import Barberia
 
 from app.database import Base, SessionLocal, engine
 from app.main import app
@@ -33,6 +35,7 @@ from app.models import (
     BarberAccount,
     Client,
     DailyClosing,
+    OwnerAccount,
     Payment,
     Service,
 )
@@ -45,7 +48,27 @@ from app.seed import seed
 def _seeded_database():
     Base.metadata.drop_all(engine)
     seed()
+
+    with SessionLocal() as db:
+        barberia = db.scalar(
+            select(Barberia).where(
+                Barberia.slug == "barberia-norte"
+            )
+        )
+
+        assert barberia is not None
+
+        propietario = OwnerAccount(
+            barberia_id=barberia.id,
+            email="admin",
+            password_hash=hash_password("test-password"),
+        )
+
+        db.add(propietario)
+        db.commit()
+
     yield
+
     engine.dispose()
     shutil.rmtree(TEST_ROOT, ignore_errors=True)
 

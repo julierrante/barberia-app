@@ -273,7 +273,9 @@ def test_self_registration_stays_pending_until_owner_approves(
     assert barber.account is not None
 
     assert "Barbero Nuevo" not in client.get("/barberos").text
+
     profile = client.get("/mi-perfil")
+
     assert profile.status_code == 200
     assert "pendiente de aprobación" in profile.text
 

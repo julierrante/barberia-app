@@ -71,12 +71,17 @@ def _start_staff_session(
     *,
     role: str,
     display_name: str,
+    barberia_id: int,
+    barberia_slug: str,
     barber_id: int | None = None,
 ) -> None:
     request.session.clear()
     request.session["role"] = role
     request.session["is_admin"] = role == "owner"
     request.session["admin_username"] = display_name
+    request.session["barberia_id"] = barberia_id
+    request.session["barberia_slug"] = barberia_slug
+
     if barber_id is not None:
         request.session["barber_id"] = barber_id
 
@@ -364,8 +369,15 @@ def login_submit(
     username: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
 ):
-    identity = authenticate_staff(db, username, password)
+    identity = authenticate_staff(
+        db,
+        username,
+        password,
+        barberia_id=barberia.id,
+    )
+
     if identity is None:
         return templates.TemplateResponse(
             request=request,
@@ -378,8 +390,11 @@ def login_submit(
         request,
         role=identity.role,
         display_name=identity.display_name,
+        barberia_id=identity.barberia_id,
+        barberia_slug=barberia.slug,
         barber_id=identity.barber_id,
     )
+
     target = "/admin" if identity.is_owner else "/mi-agenda"
     return RedirectResponse(url=target, status_code=303)
 
@@ -1094,11 +1109,11 @@ async def barber_register(
         if isinstance(upload, UploadFile) and upload.filename:
             stored_avatar_url = store_avatar(await upload.read())
         barber = create_barber_profile(
-        db,
-        data,
-        barberia_id=barberia.id,
-        avatar_url=stored_avatar_url,
-)
+            db,
+            data,
+            barberia_id=barberia.id,
+            avatar_url=stored_avatar_url,
+        )
     except ProfileFormError as exc:
         delete_avatar_file(stored_avatar_url)
         context = _barber_form_context(
@@ -1121,6 +1136,8 @@ async def barber_register(
         request,
         role="barber",
         display_name=barber.name,
+        barberia_id=barberia.id,
+        barberia_slug=barberia.slug,
         barber_id=barber.id,
     )
     return RedirectResponse(url="/mi-perfil?bienvenido=1", status_code=303)
