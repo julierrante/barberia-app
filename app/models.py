@@ -255,6 +255,39 @@ class Barber(Base):
         return len(self.ratings)
 
 
+class OwnerAccount(Base):
+    __tablename__ = "owner_accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    barberia_id: Mapped[int] = mapped_column(
+        ForeignKey("barberias.id"),
+        nullable=False,
+        index=True,
+    )
+
+    email: Mapped[str] = mapped_column(
+        String(160),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    password_hash: Mapped[str] = mapped_column(
+        String(300),
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        default=utc_now,
+        nullable=False,
+    )
+
+    barberia: Mapped["Barberia"] = relationship()
+
+
+
 class BarberAccount(Base):
     __tablename__ = "barber_accounts"
 
