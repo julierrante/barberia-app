@@ -2,7 +2,10 @@
 from app.config import get_settings
 
 
-def test_owner_session_cannot_access_another_barbershop(admin_client):
+def test_owner_session_cannot_access_another_barbershop(
+    admin_client,
+    barberia_sur,
+):
     # El propietario puede acceder a su propia barbería.
     own_response = admin_client.get(
         "/admin",

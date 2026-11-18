@@ -159,11 +159,21 @@ def _barber_form_context(
     }
 
 
-def _get_barber_or_404(db: Session, barber_id: int) -> Barber | None:
-    barber = db.get(Barber, barber_id)
-    if barber is None or barber.deleted_at is not None:
-        return None
+
+def _get_barber_or_404(
+    db: Session,
+    barber_id: int,
+    barberia_id: int,
+) -> Barber | None:
+    barber = db.scalar(
+        select(Barber).where(
+            Barber.id == barber_id,
+            Barber.barberia_id == barberia_id,
+            Barber.deleted_at.is_(None),
+        )
+    )
     return barber
+
 
 
 def _portfolio_context(
@@ -405,19 +415,25 @@ def logout(request: Request):
     return RedirectResponse(url="/admin/login", status_code=303)
 
 
+
 @router.get("/admin", response_class=HTMLResponse)
 def admin_home(
     request: Request,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     barbers = list(
         db.scalars(
             select(Barber)
-            .where(Barber.deleted_at.is_(None))
+            .where(
+                Barber.deleted_at.is_(None),
+                Barber.barberia_id == barberia.id,
+            )
             .order_by(Barber.active.desc(), Barber.name)
         ).all()
     )
+
     return templates.TemplateResponse(
         request=request,
         name="admin/home.html",
@@ -433,23 +449,36 @@ def admin_home(
 
 
 @router.get("/admin/agenda", response_class=HTMLResponse)
+
 def admin_agenda(
     request: Request,
     barber_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     barbers = list(
         db.scalars(
-            select(Barber).where(Barber.active.is_(True)).order_by(Barber.name)
+            select(Barber)
+            .where(
+                Barber.active.is_(True),
+                Barber.deleted_at.is_(None),
+                Barber.barberia_id == barberia.id,
+            )
+            .order_by(Barber.name)
         ).all()
     )
+
     selected = next(
-        (barber for barber in barbers if barber.id == barber_id), None
+        (barber for barber in barbers if barber.id == barber_id),
+        None,
     )
+
     if selected is None and barbers:
         selected = barbers[0]
+
     today = business_today()
+
     return templates.TemplateResponse(
         request=request,
         name="admin/dashboard.html",
@@ -458,16 +487,21 @@ def admin_agenda(
             "selected_barber_id": selected.id if selected else None,
             "today": date_input_value(today),
             "max_day": date_input_value(
-                today + timedelta(days=get_settings().booking_days_ahead)
+                today + timedelta(
+                    days=get_settings().booking_days_ahead
+                )
             ),
             "is_owner": True,
             "can_reschedule": True,
             "client_detail": True,
             "current_barber": None,
-            "admin_username": request.session.get("admin_username", "admin"),
+            "admin_username": request.session.get(
+                "admin_username", "admin"
+            ),
             "business_timezone": get_settings().business_timezone,
         },
     )
+
 
 
 @router.get("/admin/clientes", response_class=HTMLResponse)
@@ -475,9 +509,10 @@ def admin_clients(
     request: Request,
     q: str = Query(default=""),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
-    rows = search_clients(db, q)
+    rows = search_clients(db, q, barberia_id=barberia.id)
     return templates.TemplateResponse(
         request=request,
         name="admin/clients.html",
@@ -494,10 +529,11 @@ def admin_client_detail(
     request: Request,
     client_id: int,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     try:
-        client = get_client(db, client_id)
+        client = get_client(db, client_id, barberia_id=barberia.id)
     except NotFoundError as exc:
         return _not_found(request, exc.message)
 
@@ -516,18 +552,24 @@ def admin_client_detail(
 
 
 @router.get("/admin/barberos", response_class=HTMLResponse)
+
 def admin_barbers(
     request: Request,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     barbers = list(
         db.scalars(
             select(Barber)
-            .where(Barber.deleted_at.is_(None))
+            .where(
+                Barber.deleted_at.is_(None),
+                Barber.barberia_id == barberia.id,
+            )
             .order_by(Barber.active.desc(), Barber.name)
         ).all()
     )
+
     return templates.TemplateResponse(
         request=request,
         name="admin/barbers.html",
@@ -542,19 +584,25 @@ def admin_barbers(
     )
 
 
+
 @router.get("/admin/mi-perfil", response_class=HTMLResponse)
 def admin_owner_profile(
     request: Request,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     barbers = list(
         db.scalars(
             select(Barber)
-            .where(Barber.deleted_at.is_(None))
+            .where(
+                Barber.deleted_at.is_(None),
+                Barber.barberia_id == barberia.id,
+            )
             .order_by(Barber.active.desc(), Barber.name)
         ).all()
     )
+
     owner_username = get_settings().admin_username
     return templates.TemplateResponse(
         request=request,
@@ -655,9 +703,10 @@ def admin_barber_edit(
     request: Request,
     barber_id: int,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
-    barber = _get_barber_or_404(db, barber_id)
+    barber = _get_barber_or_404(db, barber_id, barberia.id)
     if barber is None:
         return _not_found(request, "No encontramos ese barbero.")
 
@@ -691,9 +740,10 @@ async def admin_barber_update(
     request: Request,
     barber_id: int,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
-    barber = _get_barber_or_404(db, barber_id)
+    barber = _get_barber_or_404(db, barber_id, barberia.id)
     if barber is None:
         return _not_found(request, "No encontramos ese barbero.")
 
@@ -765,9 +815,10 @@ async def admin_barber_portfolio_add(
     request: Request,
     barber_id: int,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
-    barber = _get_barber_or_404(db, barber_id)
+    barber = _get_barber_or_404(db, barber_id, barberia.id)
     if barber is None:
         return _not_found(request, "No encontramos ese barbero.")
 
@@ -792,14 +843,17 @@ async def admin_barber_portfolio_add(
 
 
 @router.post("/admin/barberos/{barber_id}/trabajos/{item_id}/eliminar")
+
 def admin_barber_portfolio_delete(
     request: Request,
     barber_id: int,
     item_id: int,
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
-    barber = _get_barber_or_404(db, barber_id)
+
+    barber = _get_barber_or_404(db, barber_id, barberia.id)
     if barber is None:
         return _not_found(request, "No encontramos ese barbero.")
     try:
@@ -818,9 +872,10 @@ def admin_barber_status(
     active: str = Form(...),
     origin: str = Form(default=""),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
-    barber = _get_barber_or_404(db, barber_id)
+    barber = _get_barber_or_404(db, barber_id, barberia.id)
     if barber is None:
         return _not_found(request, "No encontramos ese barbero.")
 
@@ -844,9 +899,10 @@ def admin_barber_delete(
     barber_id: int,
     origin: str = Form(default=""),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
-    barber = _get_barber_or_404(db, barber_id)
+    barber = _get_barber_or_404(db, barber_id, barberia.id)
     if barber is None:
         return _not_found(request, "No encontramos ese barbero.")
 
@@ -872,15 +928,22 @@ def admin_closings(
     month: str = Query(default=""),
     barber_id: int | None = Query(default=None),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     today = business_today()
     period = _month_context(month, today)
 
-    statement = select(DailyClosing).where(
-        DailyClosing.business_date >= period["start"],
-        DailyClosing.business_date <= period["end"],
+    statement = (
+        select(DailyClosing)
+        .join(Barber, DailyClosing.barber_id == Barber.id)
+        .where(
+            DailyClosing.business_date >= period["start"],
+            DailyClosing.business_date <= period["end"],
+            Barber.barberia_id == barberia.id,
+        )
     )
+
     if barber_id is not None:
         statement = statement.where(DailyClosing.barber_id == barber_id)
     rows = list(
@@ -890,8 +953,14 @@ def admin_closings(
             )
         ).all()
     )
+    barbers = list(
+        db.scalars(
+            select(Barber)
+            .where(Barber.barberia_id == barberia.id)
+            .order_by(Barber.name)
+        ).all()
+    )
 
-    barbers = list(db.scalars(select(Barber).order_by(Barber.name)).all())
     totals = {
         "appointments": sum(row.appointments_count for row in rows),
         "completed": sum(row.completed_count for row in rows),
@@ -927,6 +996,7 @@ def admin_reports(
     request: Request,
     month: str = Query(default=""),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     today = business_today()
@@ -934,9 +1004,11 @@ def admin_reports(
     rows = list(
         db.scalars(
             select(DailyClosing)
+            .join(Barber, DailyClosing.barber_id == Barber.id)
             .where(
                 DailyClosing.business_date >= period["start"],
                 DailyClosing.business_date <= period["end"],
+                Barber.barberia_id == barberia.id,
             )
             .order_by(DailyClosing.business_date)
         ).all()
@@ -1031,6 +1103,7 @@ def admin_close_day(
     request: Request,
     closing_date: str = Form(..., alias="date"),
     db: Session = Depends(get_db),
+    barberia: Barberia = Depends(obtener_barberia_actual),
     _: None = Depends(require_owner_page),
 ):
     try:
@@ -1048,12 +1121,17 @@ def admin_close_day(
     existed = (
         db.scalar(
             select(DailyClosing.id)
-            .where(DailyClosing.business_date == day)
+            .join(Barber, DailyClosing.barber_id == Barber.id)
+            .where(
+                DailyClosing.business_date == day,
+                Barber.barberia_id == barberia.id,
+            )
             .limit(1)
         )
         is not None
     )
-    rows = close_day(db, day)
+
+    rows = close_day(db, day, barberia_id=barberia.id)
     if not rows:
         return RedirectResponse(
             url="/admin/cierres?error=sin-barberos", status_code=303

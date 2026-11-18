@@ -96,6 +96,24 @@ def db():
     with SessionLocal() as session:
         yield session
 
+@pytest.fixture
+def barberia_sur(db):
+    barberia = Barberia(
+        nombre="Barbería Sur",
+        slug="barberia-sur",
+        descripcion="Barbería creada para pruebas de aislamiento.",
+        activa=True,
+    )
+
+    db.add(barberia)
+    db.commit()
+    db.refresh(barberia)
+
+    yield barberia
+
+    db.delete(barberia)
+    db.commit()
+
 
 @pytest.fixture
 def client():

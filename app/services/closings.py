@@ -47,34 +47,55 @@ def close_day(
     db: Session,
     day: date,
     *,
+    barberia_id: int | None = None,
     now: datetime | None = None,
 ) -> list[DailyClosing]:
     start_at, end_at = day_bounds_utc(day)
-    appointments = list(
-        db.scalars(
-            select(Appointment).where(
-                Appointment.start_at >= start_at,
-                Appointment.start_at < end_at,
-            )
-        ).all()
+    appointments_stmt = select(Appointment).where(
+        Appointment.start_at >= start_at,
+        Appointment.start_at < end_at,
     )
 
+    if barberia_id is not None:
+        appointments_stmt = appointments_stmt.join(
+            Barber, Appointment.barber_id == Barber.id
+        ).where(Barber.barberia_id == barberia_id)
+
+    appointments = list(db.scalars(appointments_stmt).all())
+
     by_barber: dict[int, list[Appointment]] = defaultdict(list)
+
     for appointment in appointments:
         by_barber[appointment.barber_id].append(appointment)
 
+    existing_stmt = select(DailyClosing).where(
+        DailyClosing.business_date == day
+    )
+
+    if barberia_id is not None:
+        existing_stmt = existing_stmt.join(
+            Barber, DailyClosing.barber_id == Barber.id
+        ).where(Barber.barberia_id == barberia_id)
+
     existing = {
         row.barber_id: row
-        for row in db.scalars(
-            select(DailyClosing).where(DailyClosing.business_date == day)
-        ).all()
+        for row in db.scalars(existing_stmt).all()
     }
+
+
+
+    barbers_stmt = select(Barber).where(
+        Barber.deleted_at.is_(None)
+    )
+
+    if barberia_id is not None:
+        barbers_stmt = barbers_stmt.where(
+            Barber.barberia_id == barberia_id
+        )
 
     barbers: dict[int, Barber] = {
         barber.id: barber
-        for barber in db.scalars(
-            select(Barber).where(Barber.deleted_at.is_(None))
-        ).all()
+        for barber in db.scalars(barbers_stmt).all()
     }
     for barber_id in set(by_barber) | set(existing):
         if barber_id not in barbers:

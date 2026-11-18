@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import (
     Appointment,
     AppointmentStatus,
+    Barber,
     Client,
     PaymentStatus,
 )
@@ -24,9 +25,27 @@ class ClientStats:
     pending_balance_cents: int
 
 
-def _client_query():
-    return select(Client).options(
-        selectinload(Client.appointments).selectinload(Appointment.payments)
+
+def _client_query(barberia_id: int):
+    return (
+        select(Client)
+        .where(
+            Client.appointments.any(
+                Appointment.barber.has(
+                    Barber.barberia_id == barberia_id
+                )
+            )
+        )
+        .options(
+            selectinload(
+                Client.appointments.and_(
+                    Appointment.barber.has(
+                        Barber.barberia_id == barberia_id
+                    )
+                )
+            ).selectinload(Appointment.payments)
+        )
+        .execution_options(populate_existing=True)
     )
 
 
@@ -64,9 +83,10 @@ def search_clients(
     db: Session,
     query: str | None = None,
     *,
+    barberia_id: int,
     limit: int = 200,
 ) -> list[tuple[Client, ClientStats]]:
-    stmt = _client_query()
+    stmt = _client_query(barberia_id)
     cleaned = (query or "").strip()
     if cleaned:
         like = f"%{cleaned}%"
@@ -85,8 +105,15 @@ def search_clients(
     return [(client, calculate_stats(client)) for client in clients]
 
 
-def get_client(db: Session, client_id: int) -> Client:
-    client = db.scalar(_client_query().where(Client.id == client_id))
+def get_client(
+    db: Session,
+    client_id: int,
+    *,
+    barberia_id: int,
+) -> Client:
+    client = db.scalar(
+        _client_query(barberia_id).where(Client.id == client_id)
+    )
     if client is None:
         raise NotFoundError("No encontramos ese cliente.")
     return client
