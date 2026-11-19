@@ -1,10 +1,7 @@
-
-"""Pruebas de aislamiento de las rutas públicas entre barberías."""
-
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.models import (
     Appointment,
@@ -14,6 +11,9 @@ from app.models import (
     Client,
     Service,
 )
+from app.schemas import BookingCreate, ClientCreate
+from app.services.booking import create_booking
+from app.services.errors import NotFoundError
 from app.timeutils import utc_now
 
 
@@ -237,3 +237,36 @@ def test_no_permite_operar_sobre_turno_de_otra_barberia(
     assert turno_guardado.status == AppointmentStatus.confirmed
     assert turno_guardado.client_confirmed_at is None
     assert turno_guardado.rating is None
+
+
+def test_no_permite_crear_turno_con_recursos_de_distintas_barberias(
+    db,
+    barberia_sur,
+    mateo,
+):
+    _, _, servicio_sur = barberia_sur
+
+    payload = BookingCreate(
+        barber_id=mateo.id,
+        service_id=servicio_sur.id,
+        start_at=utc_now() + timedelta(days=2),
+        payment_option="later",
+        client=ClientCreate(
+            first_name="Cliente",
+            last_name="PruebaCruzada",
+            phone="+5491198765499",
+        ),
+    )
+
+    turnos_antes = db.scalar(
+        select(func.count(Appointment.id))
+    )
+
+    with pytest.raises(NotFoundError):
+        create_booking(db, payload)
+
+    turnos_despues = db.scalar(
+        select(func.count(Appointment.id))
+    )
+
+    assert turnos_despues == turnos_antes

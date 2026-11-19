@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from datetime import time
+from types import SimpleNamespace
 from urllib.parse import urlencode
 
+import pytest
 from sqlalchemy import select
 
 from app.auth import hash_password, verify_password
 from app.models import Barber, BarberAccount
+from app.routers import pages
 from app.services import barbers as barber_service
 from app.timeutils import business_today
 from helpers import booking_payload, find_day_with_slots
@@ -377,3 +380,33 @@ def test_overlapping_schedule_is_rejected(client, db, mateo):
     assert "se superponen" in broken.text
 
     assert db.scalar(select(Barber.id).where(Barber.slug == "horario-roto")) is None
+
+
+def test_current_barber_rejects_another_barbershop_session(
+    db,
+    mateo,
+    barberia_sur,
+    monkeypatch,
+):
+    # Simulamos una sesión que identifica al barbero de Norte.
+    # Aislamos la comprobación interna de _current_barber.
+    monkeypatch.setattr(
+        pages,
+        "session_barber_id",
+        lambda request: mateo.id,
+    )
+
+    # Pero la sesión declara pertenecer a Barbería Sur.
+    request = SimpleNamespace(
+        session={
+            "barber_id": mateo.id,
+            "barberia_id": barberia_sur.id,
+        }
+    )
+
+    # La función debe rechazar esta combinación.
+    with pytest.raises(pages.LoginRequired):
+        pages._current_barber(request, db)
+
+    # La sesión inválida debe quedar limpia.
+    assert request.session == {}

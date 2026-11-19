@@ -86,14 +86,26 @@ def _start_staff_session(
         request.session["barber_id"] = barber_id
 
 
+
 def _current_barber(request: Request, db: Session) -> Barber:
     barber_id = session_barber_id(request)
+    barberia_id = request.session.get("barberia_id")
+
     barber = db.get(Barber, barber_id) if barber_id else None
-    if barber is None or barber.deleted_at is not None:
-        # Sin limpiar la sesión, /mi-agenda y /admin/login se redirigen en bucle.
+
+    if (
+        barber is None
+        or barber.deleted_at is not None
+        or not isinstance(barberia_id, int)
+        or isinstance(barberia_id, bool)
+        or barber.barberia_id != barberia_id
+    ):
+        # Evitamos conservar sesiones inválidas o cruzadas.
         request.session.clear()
         raise LoginRequired()
+
     return barber
+
 
 
 MONTH_NAMES = (
@@ -670,11 +682,11 @@ async def admin_barber_create(
         if isinstance(upload, UploadFile) and upload.filename:
             stored_avatar_url = store_avatar(await upload.read())
         barber = create_barber_profile(
-    db,
-    data,
-    barberia_id=barberia.id,
-    avatar_url=stored_avatar_url,
-)
+            db,
+            data,
+            barberia_id=barberia.id,
+            avatar_url=stored_avatar_url,
+        )
     except ProfileFormError as exc:
         delete_avatar_file(stored_avatar_url)
         context = _barber_form_context(

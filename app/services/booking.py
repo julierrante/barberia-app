@@ -109,6 +109,11 @@ def create_booking(
     service = get_service(db, payload.service_id)
     barber = get_barber(db, payload.barber_id)
 
+    if service.barberia_id != barber.barberia_id:
+        raise NotFoundError(
+            "El servicio y el barbero no pertenecen a la misma barbería."
+        )
+
     start_at = payload.start_at.astimezone(UTC).replace(microsecond=0)
     day = to_business(start_at).date()
     validate_booking_day(day)
