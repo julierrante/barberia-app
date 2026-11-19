@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import os
@@ -24,24 +25,29 @@ os.environ["DAILY_CLOSE_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select, update
-from app.auth import hash_password
-from app.models import Barberia
 
+from app.auth import hash_password
 from app.database import Base, SessionLocal, engine
 from app.main import app
 from app.models import (
     Appointment,
     Barber,
     BarberAccount,
+    Barberia,
     Client,
     DailyClosing,
     OwnerAccount,
     Payment,
     Service,
 )
-
-SEEDED_BARBER_SLUGS = {"mateo-rios", "thiago-benitez", "camila-duarte"}
 from app.seed import seed
+
+
+SEEDED_BARBER_SLUGS = {
+    "mateo-rios",
+    "thiago-benitez",
+    "camila-duarte",
+}
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -81,13 +87,23 @@ def _clean_transactions():
         db.execute(delete(Appointment))
         db.execute(delete(Client))
         db.execute(delete(BarberAccount))
-        db.execute(delete(Barber).where(Barber.slug.notin_(SEEDED_BARBER_SLUGS)))
+        db.execute(
+            delete(Barber).where(
+                Barber.slug.notin_(SEEDED_BARBER_SLUGS)
+            )
+        )
         db.execute(
             update(Barber)
-            .where(Barber.slug.in_(SEEDED_BARBER_SLUGS))
-            .values(active=True, deleted_at=None)
+            .where(
+                Barber.slug.in_(SEEDED_BARBER_SLUGS)
+            )
+            .values(
+                active=True,
+                deleted_at=None,
+            )
         )
         db.commit()
+
     yield
 
 
@@ -95,6 +111,7 @@ def _clean_transactions():
 def db():
     with SessionLocal() as session:
         yield session
+
 
 @pytest.fixture
 def barberia_sur(db):
@@ -116,30 +133,90 @@ def barberia_sur(db):
 
 
 @pytest.fixture
+def owner_sur(db, barberia_sur):
+    propietario = OwnerAccount(
+        barberia_id=barberia_sur.id,
+        email="propietario-sur@test.com",
+        password_hash=hash_password("clave-sur-123"),
+    )
+
+    db.add(propietario)
+    db.commit()
+    db.refresh(propietario)
+
+    yield propietario
+
+    db.delete(propietario)
+    db.commit()
+
+
+@pytest.fixture
 def client():
-    with TestClient(app, base_url="http://localhost") as test_client:
+    with TestClient(
+        app,
+        base_url="http://localhost",
+    ) as test_client:
         yield test_client
+
 
 @pytest.fixture
 def admin_client(client):
     response = client.post(
         "/admin/login",
-        data={"username": "admin", "password": "test-password"},
+        data={
+            "username": "admin",
+            "password": "test-password",
+        },
         follow_redirects=False,
     )
+
     assert response.status_code == 303
+
     return client
 
 
 @pytest.fixture
+def admin_client_sur(owner_sur):
+    with TestClient(
+        app,
+        base_url="http://barberia-sur.tuapp.com",
+    ) as test_client:
+        response = test_client.post(
+            "/admin/login",
+            data={
+                "username": "propietario-sur@test.com",
+                "password": "clave-sur-123",
+            },
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin"
+
+        yield test_client
+
+
+@pytest.fixture
 def mateo(db) -> Barber:
-    barber = db.scalar(select(Barber).where(Barber.slug == "mateo-rios"))
+    barber = db.scalar(
+        select(Barber).where(
+            Barber.slug == "mateo-rios"
+        )
+    )
+
     assert barber is not None
+
     return barber
 
 
 @pytest.fixture
 def corte_clasico(db) -> Service:
-    service = db.scalar(select(Service).where(Service.name == "Corte clásico"))
+    service = db.scalar(
+        select(Service).where(
+            Service.name == "Corte clásico"
+        )
+    )
+
     assert service is not None
+
     return service
